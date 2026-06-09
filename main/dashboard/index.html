@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRD Device Logger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>TRD Logger</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" onclick="switchPage('data', this)">📊 Data Monitor</button>
+                <button class="nav-btn" onclick="switchPage('config', this)">⚙️ Configuration</button>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1 id="page-title">Data Monitor</h1>
+                <div class="status-indicator">
+                    <span id="sd-status" class="badge off">SD: ERROR</span>
+                    <span id="log-status" class="badge off">Logging: OFF</span>
+                    <span id="wifi-status" class="badge on">WiFi: AP Mode</span>
+                </div>
+            </header>
+
+            <div id="view-data" class="view-section active">
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <h3>Vibration (IMU)</h3>
+                        <div class="value"><span id="val-vib-ms2">0.00</span> <small>m/s&sup2; (Calib)</small></div>
+                        <div class="sub-value">Uncalib: <span id="val-vib-uncalib">0.00</span> <small>m/s&sup2;</small></div>
+                        <div class="sub-value" style="margin-top: 5px;">Raw IMU: <span id="val-vib-raw">0.000</span> <small>g</small></div>
+                    </div>
+                    <div class="card">
+                        <h3>Fuel Level</h3>
+                        <div class="value"><span id="val-fuel">0.0</span> <small>%</small></div>
+                        <div class="sub-value">Raw ADC: <span id="val-fuel-raw">0</span></div>
+                    </div>
+                    <div class="card">
+                        <h3>System Voltage</h3>
+                        <div class="value"><span id="val-volt">0.00</span> <small>V</small></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-config" class="view-section">
+                <div class="card control-panel">
+                    <h3>Logging Configuration</h3>
+                    <div class="form-group">
+                        <label for="sampling-rate">Sampling Rate (ms):</label>
+                        <input type="number" id="sampling-rate" value="50" min="10" max="5000">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="btn-update" onclick="updateConfig()">Save Config</button>
+                        <button id="btn-toggle-log" class="btn-start" onclick="toggleLogging()">START LOGGING</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
