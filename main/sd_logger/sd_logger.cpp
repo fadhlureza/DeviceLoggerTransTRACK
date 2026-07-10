@@ -4,11 +4,14 @@
 #include "sdmmc_cmd.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
+#include <time.h>
+#include <sys/time.h>
 #include <stdio.h>
 
 static const char mount_point[] = "/sdcard";
 static sdmmc_card_t *card;
 static FILE *log_file = NULL;
+static int current_log_day = -1;
 
 static void write_float_comma(FILE* f, float val) {
     char buf[32];
@@ -22,7 +25,7 @@ static void write_float_comma(FILE* f, float val) {
 void sd_init() {
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
     mount_config.format_if_mount_failed = false;
-    mount_config.max_files = 5;
+    mount_config.max_files = 10;
     mount_config.allocation_unit_size = 16 * 1024;
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
@@ -56,35 +59,54 @@ bool sd_start_new_log() {
     if (!g_sd_card_ready) return false;
     if (log_file != NULL) return false;
 
-    char filename[32];
-    int index = 0;
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
 
-    while (1) {
-        snprintf(filename, sizeof(filename), "/sdcard/log_%d.csv", index);
-        FILE *f = fopen(filename, "r");
-        if (f == NULL) {
-            break;
-        }
-        fclose(f);
-        index++;
-    }
-
-    log_file = fopen(filename, "w");
-    if (log_file == NULL) return false;
+    char filename[64];
+    snprintf(filename, sizeof(filename), "%s/%04d-%02d-%02d.csv", mount_point, timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
     
-    fprintf(log_file, "Timestamp;Vib_Raw_g;Vib_Uncalib_ms2;Vib_Calib_ms2;Fuel_Raw;Fuel_Norm;Voltage\n");
+    log_file = fopen(filename, "a");
+    if (log_file == NULL) return false;
+
+    current_log_day = timeinfo.tm_mday;
+
+    fseek(log_file, 0, SEEK_END);
+    if (ftell(log_file) == 0) {
+        fprintf(log_file, "Timestamp;Veh_Voltage;Int_Voltage;Fuel_Volt;Ignition;AccX;AccY;AccZ;Pitch;Roll;Yaw\n");
+    }
     return true;
 }
 
-void sd_write_data_row(uint32_t timestamp, float vib_raw_g, float vib_uncalib_ms2, float vib_calib_ms2, float fuel_raw, float fuel_norm, float voltage) {
+void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float int_voltage, float fuel_volt, int ignition, 
+                        float accX, float accY, float accZ, float pitch, float roll, float yaw) {
     if (log_file != NULL && g_sd_card_ready) {
-        fprintf(log_file, "%lu;", timestamp);
-        write_float_comma(log_file, vib_raw_g); fprintf(log_file, ";");
-        write_float_comma(log_file, vib_uncalib_ms2); fprintf(log_file, ";");
-        write_float_comma(log_file, vib_calib_ms2); fprintf(log_file, ";");
-        write_float_comma(log_file, fuel_raw); fprintf(log_file, ";");
-        write_float_comma(log_file, fuel_norm); fprintf(log_file, ";");
-        write_float_comma(log_file, voltage); fprintf(log_file, "\n");
+        time_t now;
+        struct tm timeinfo;
+        time(&now);
+        localtime_r(&now, &timeinfo);
+
+        if (timeinfo.tm_mday != current_log_day) {
+            sd_stop_log();
+            sd_start_new_log();
+        }
+
+        if (log_file == NULL) return;
+
+        fprintf(log_file, "%s;", rtc_timestamp);
+        write_float_comma(log_file, veh_voltage); fprintf(log_file, ";");
+        write_float_comma(log_file, int_voltage); fprintf(log_file, ";");
+        write_float_comma(log_file, fuel_volt); fprintf(log_file, ";");
+        fprintf(log_file, "%d;", ignition);
+        write_float_comma(log_file, accX); fprintf(log_file, ";");
+        write_float_comma(log_file, accY); fprintf(log_file, ";");
+        write_float_comma(log_file, accZ); fprintf(log_file, ";");
+        write_float_comma(log_file, pitch); fprintf(log_file, ";");
+        write_float_comma(log_file, roll); fprintf(log_file, ";");
+        write_float_comma(log_file, yaw); fprintf(log_file, "\n");
+
+        fflush(log_file);
     }
 }
 
@@ -93,4 +115,21 @@ void sd_stop_log() {
         fclose(log_file);
         log_file = NULL;
     }
+}
+
+float sd_get_used_percentage() {
+    if (!g_sd_card_ready) return 0.0f;
+
+    uint64_t total = 0;
+    uint64_t free = 0;
+
+    esp_err_t err = esp_vfs_fat_info(mount_point, &total, &free);
+
+    if (err == ESP_OK && total > 0) {
+        uint64_t used = total - free;
+        float percentage = ((float)used / (float)total) * 100.0f;
+
+        return percentage;
+    }
+    return 0.0f;
 }

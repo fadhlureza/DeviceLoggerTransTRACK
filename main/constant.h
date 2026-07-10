@@ -17,13 +17,20 @@
 // IMU Registers
 #define BMI160_ADDR      0x68 
 #define CMD_REG          0x7E
+#define ACC_CONF         0x40
 #define ACC_RANGE        0x41
 #define ACC_X_LSB        0x12
+#define GYR_RANGE        0x43
+#define GYR_X_LSB        0x0C
+#define BMI160_CHIP_ID    0xD1
+#define BMI160_REG_CHIP_ID 0x00
+#define BMI160_CMD_SOFT_RESET 0xB6
 
 // IMU Parameters
 #define IMU_I2C_FREQ     100000
-#define IMU_LSB_PER_G    8192.0f
+#define IMU_LSB_PER_G    2048.0f
 #define GRAVITY_EARTH    9.80665f
+#define ALPHA 0.98f
 
 // Kalibrasi IMU
 #define VIB_CALIB_MULT   1.226f
@@ -54,5 +61,15 @@ inline volatile float g_curr_vib_calib_ms2 = 0.0;
 inline volatile float g_curr_fuel_raw = 0.0;
 inline volatile float g_curr_fuel_norm = 0.0;
 inline volatile float g_curr_voltage = 0.0;
+extern float g_curr_accX_ms2;
+extern float g_curr_accY_ms2;
+extern float g_curr_accZ_ms2;
+extern float g_curr_pitch;
+extern float g_curr_roll;
+extern float g_curr_yaw;
+
+extern volatile float g_batt_perc;
+extern volatile float g_sd_used_perc;
+extern volatile bool g_ignition;
 
 inline adc_oneshot_unit_handle_t g_adc1_handle = NULL;

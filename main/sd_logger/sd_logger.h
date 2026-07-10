@@ -4,5 +4,6 @@
 
 void sd_init();
 bool sd_start_new_log();
-void sd_write_data_row(uint32_t timestamp, float vib_raw_g, float vib_uncalib_ms2, float vib_calib_ms2, float fuel_raw, float fuel_norm, float voltage);
+void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float int_voltage, float fuel_volt, int ignition, float accX, float accY, float accZ, float pitch, float roll, float yaw);
 void sd_stop_log();
+float sd_get_used_percentage();

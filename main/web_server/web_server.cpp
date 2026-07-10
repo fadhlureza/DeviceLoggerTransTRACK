@@ -5,6 +5,8 @@
 #include "cJSON.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+#include <time.h>
 
 extern const char index_html_start[] asm("_binary_index_html_start");
 extern const char style_css_start[] asm("_binary_style_css_start");
@@ -47,11 +49,19 @@ static esp_err_t js_handler(httpd_req_t *req) {
 static esp_err_t data_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_FAIL;
 
-    char resp_str[350];
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    char rtc_time_str[16];
+    strftime(rtc_time_str, sizeof(rtc_time_str), "%H:%M:%S", &timeinfo);
+
+    char resp_str[600];
     snprintf(resp_str, sizeof(resp_str), 
-             "{\"vib_raw_g\": %.3f, \"vib_uncalib_ms2\": %.3f, \"vib_calib_ms2\": %.3f, \"fuel_raw\": %.3f, \"fuel_norm\": %.3f, \"voltage\": %.3f, \"is_logging\": %s, \"rate\": %d, \"sd_ready\": %s}", 
-             g_curr_vib_raw_g, g_curr_vib_uncalib_ms2, g_curr_vib_calib_ms2, g_curr_fuel_raw, g_curr_fuel_norm, g_curr_voltage, 
-             g_is_logging ? "true" : "false", g_sampling_rate_ms, g_sd_card_ready ? "true" : "false");
+             "{\"vib_raw_g\": %.3f, \"vib_uncalib_ms2\": %.3f, \"vib_calib_ms2\": %.3f, \"accX\": %.3f, \"accY\": %.3f, \"accZ\": %.3f, \"pitch\": %.3f, \"roll\": %.3f, \"yaw\": %.3f, \"fuel_raw\": %.3f, \"fuel_norm\": %.3f, \"voltage\": %.3f, \"is_logging\": %s, \"rate\": %d, \"sd_ready\": %s, \"sd_used_perc\": %.1f, \"batt_perc\": %.1f, \"ignition\": %s, \"rtc_time\": \"%s\"}", 
+             g_curr_vib_raw_g, g_curr_vib_uncalib_ms2, g_curr_vib_calib_ms2, g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2, g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_fuel_raw, g_curr_fuel_norm, g_curr_voltage, 
+             g_is_logging ? "true" : "false", g_sampling_rate_ms, g_sd_card_ready ? "true" : "false",
+             g_sd_used_perc, g_batt_perc, g_ignition ? "true" : "false", rtc_time_str);
     
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, resp_str);
@@ -95,6 +105,14 @@ static esp_err_t config_handler(httpd_req_t *req) {
 
     cJSON *rate = cJSON_GetObjectItem(json, "sampling_rate_ms");
     if (cJSON_IsNumber(rate)) g_sampling_rate_ms = rate->valueint;
+
+    cJSON *rtc_ts = cJSON_GetObjectItem(json, "rtc_timestamp");
+    if (cJSON_IsNumber(rtc_ts) && rtc_ts->valueint > 0) {
+        struct timeval tv;
+        tv.tv_sec = rtc_ts->valueint;
+        tv.tv_usec = 0;
+        settimeofday(&tv, NULL);
+    }
 
     cJSON_Delete(json);
     httpd_resp_set_type(req, "application/json");
