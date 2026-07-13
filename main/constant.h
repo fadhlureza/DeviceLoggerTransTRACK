@@ -36,6 +36,9 @@
 #define VIB_CALIB_MULT   1.226f
 #define VIB_CALIB_OFFSET 0.145f
 
+// RTC registers
+#define DS3231_ADDR 0x68
+
 //Temperature sensor parameters
 #define MCP9808_ADDR 0x18
 #define MCP9808_REG_TEMP 0x05

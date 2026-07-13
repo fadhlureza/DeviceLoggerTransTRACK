@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 #include "constant.h"
 #include "imu/imu.h"
+#include "rtc/rtc.h"
 #include "temperature/temperature.h"
 #include "sd_logger/sd_logger.h"
 #include "fuel/fuel.h"
@@ -103,6 +104,7 @@ extern "C" void app_main(void) {
     imu_init();
     imu_calibrate();
     mcp9808_init();
+    rtc_init();
     fuel_sensor_init();
     voltage_sensor_init();
     sd_init();
