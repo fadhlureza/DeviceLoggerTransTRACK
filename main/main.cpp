@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 #include "constant.h"
 #include "imu/imu.h"
+#include "temperature/temperature.h"
 #include "sd_logger/sd_logger.h"
 #include "fuel/fuel.h"
 #include "voltage/voltage.h"
@@ -11,16 +12,6 @@
 #include "web_server/web_server.h"
 #include <time.h>
 #include <sys/time.h>
-
-float g_curr_accX_ms2 = 0.0f;
-float g_curr_accY_ms2 = 0.0f;
-float g_curr_accZ_ms2 = 0.0f;
-float g_curr_pitch = 0.0f;
-float g_curr_roll = 0.0f;
-float g_curr_yaw = 0.0f;
-volatile float g_batt_perc = 0.0f;
-volatile float g_sd_used_perc = 0.0f;
-volatile bool g_ignition = false;
 
 volatile float g_ema_alpha = 0.2f;
 volatile bool first_ema_read = true;
@@ -62,6 +53,7 @@ void sensor_read_task(void *pvParameters) {
             g_curr_fuel_raw = fuel_read_raw();
             g_curr_fuel_norm = fuel_read_normalized();
             g_curr_voltage = voltage_read_actual();
+            g_curr_temp_c = mcp9808_read_temp();
             adc_counter = 0;
         }
 
@@ -95,7 +87,7 @@ void logging_task(void *pvParameters) {
 
             sd_write_data_row(rtc_time_str, g_curr_voltage, g_curr_voltage, g_curr_fuel_raw, g_ignition ? 1 : 0,
                               g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2,
-                              g_curr_pitch, g_curr_roll, g_curr_yaw);
+                              g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_temp_c);
             
             last_log_time = current_ms;
         }
@@ -110,6 +102,7 @@ extern "C" void app_main(void) {
 
     imu_init();
     imu_calibrate();
+    mcp9808_init();
     fuel_sensor_init();
     voltage_sensor_init();
     sd_init();

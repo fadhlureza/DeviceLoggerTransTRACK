@@ -36,6 +36,10 @@
 #define VIB_CALIB_MULT   1.226f
 #define VIB_CALIB_OFFSET 0.145f
 
+//Temperature sensor parameters
+#define MCP9808_ADDR 0x18
+#define MCP9808_REG_TEMP 0x05
+
 // Fuel and voltage sensor parameters
 #define FUEL_ADC_CHAN     ADC_CHANNEL_4
 #define VOLT_ADC_CHAN     ADC_CHANNEL_5
@@ -61,15 +65,16 @@ inline volatile float g_curr_vib_calib_ms2 = 0.0;
 inline volatile float g_curr_fuel_raw = 0.0;
 inline volatile float g_curr_fuel_norm = 0.0;
 inline volatile float g_curr_voltage = 0.0;
-extern float g_curr_accX_ms2;
-extern float g_curr_accY_ms2;
-extern float g_curr_accZ_ms2;
-extern float g_curr_pitch;
-extern float g_curr_roll;
-extern float g_curr_yaw;
+inline volatile float g_curr_temp_c = 0.0;
+inline volatile float g_curr_accX_ms2 = 0.0;
+inline volatile float g_curr_accY_ms2 = 0.0;
+inline volatile float g_curr_accZ_ms2 = 0.0;
+inline volatile float g_curr_pitch = 0.0;
+inline volatile float g_curr_roll = 0.0;
+inline volatile float g_curr_yaw = 0.0;
 
-extern volatile float g_batt_perc;
-extern volatile float g_sd_used_perc;
-extern volatile bool g_ignition;
+inline volatile float g_batt_perc = 0.0;
+inline volatile float g_sd_used_perc = 0.0;
+inline volatile bool g_ignition = false;
 
 inline adc_oneshot_unit_handle_t g_adc1_handle = NULL;

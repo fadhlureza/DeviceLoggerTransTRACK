@@ -10,7 +10,8 @@ const chartData = {
     accel: { x: [], y: [], z: [] },
     orient: { pitch: [], roll: [], yaw: [] },
     fuel: [],
-    voltage: []
+    voltage: [],
+    temperature: []
 };
 
 // Fungsi Universal buat nggambar grafik murni pake HTML5 Canvas
@@ -75,6 +76,9 @@ function updateCharts() {
 
     // 4. Gambar Chart Voltase (Range 0-15 Volt)
     drawLineChart('chart-ignition', [chartData.voltage], ['#a4b0be'], 0, 15);
+
+    // 5. Gambar Chart Temperatur (Range -40 sampai 125 derajat C)
+    drawLineChart('chart-temp', [chartData.temperature], ['#ff7f50'], 0, 100);
 }
 
 // Fungsi buat nge-push data ke array dan ngebuang data lama
@@ -130,6 +134,9 @@ async function fetchData() {
         document.getElementById('val-fuel').innerText = data.fuel_norm.toFixed(1);
         document.getElementById('val-fuel-raw').innerText = Math.round(data.fuel_raw);
         document.getElementById('val-volt').innerText = data.voltage.toFixed(2);
+
+        // Update Teks Temperatur
+        document.getElementById('val-temp').innerText = data.temperature.toFixed(2);
         
         // --- Update Teks Status (AC) ---
         // RTC
@@ -169,6 +176,7 @@ async function fetchData() {
         pushData(chartData.orient.yaw, data.yaw);
         pushData(chartData.fuel, data.fuel_norm);
         pushData(chartData.voltage, data.voltage);
+        pushData(chartData.temperature, data.temperature);
 
         // Render Ulang Grafik
         updateCharts();
