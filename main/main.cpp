@@ -13,6 +13,7 @@
 #include "web_server/web_server.h"
 #include <time.h>
 #include <sys/time.h>
+#include "driver/gpio.h"
 
 volatile float g_ema_alpha = 0.2f;
 volatile bool first_ema_read = true;
@@ -55,6 +56,7 @@ void sensor_read_task(void *pvParameters) {
             g_curr_fuel_norm = fuel_read_normalized();
             g_curr_voltage = voltage_read_actual();
             g_curr_temp_c = mcp9808_read_temp();
+            g_ignition = (gpio_get_level(IGNITION_PIN) == 1);
             adc_counter = 0;
         }
 
@@ -107,6 +109,16 @@ extern "C" void app_main(void) {
     rtc_init();
     fuel_sensor_init();
     voltage_sensor_init();
+
+    // Ignition Pin Configuration
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1ULL << IGNITION_PIN);
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+
     sd_init();
     wifi_ap_init();
     start_webserver();

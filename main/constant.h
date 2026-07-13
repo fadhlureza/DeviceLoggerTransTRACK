@@ -39,6 +39,9 @@
 // RTC registers
 #define DS3231_ADDR 0x68
 
+// Ignition Status Pin
+#define IGNITION_PIN GPIO_NUM_32
+
 //Temperature sensor parameters
 #define MCP9808_ADDR 0x18
 #define MCP9808_REG_TEMP 0x05
