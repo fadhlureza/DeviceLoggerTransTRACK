@@ -2,7 +2,7 @@
 #include "constant.h"
 
 int ina3221_init();
-int ina3221_read_bus_voltage(int channel, float *voltage);
+int ina3221_read_bus_voltage(uint8_t channel, float *voltage);
 
 void fuel_sensor_init() {
     (void)ina3221_init();

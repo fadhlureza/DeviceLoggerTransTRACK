@@ -12,6 +12,52 @@ static const char mount_point[] = "/sdcard";
 static sdmmc_card_t *card;
 static FILE *log_file = NULL;
 static int current_log_day = -1;
+static bool bus_initialized = false;
+static sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+static sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+static esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
+
+static void sd_prepare_configs() {
+    host.slot = SPI2_HOST;
+
+    mount_config.format_if_mount_failed = false;
+    mount_config.max_files = 10;
+    mount_config.allocation_unit_size = 16 * 1024;
+
+    slot_config.gpio_cs = (gpio_num_t)SD_CS_PIN;
+    slot_config.host_id = SPI2_HOST;
+}
+
+static esp_err_t sd_mount_card() {
+    esp_err_t ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
+    if (ret == ESP_OK) {
+        g_sd_card_ready = true;
+        printf("[SD] Mounted.\n");
+    } else {
+        g_sd_card_ready = false;
+        printf("[SD] Mount failed: %s\n", esp_err_to_name(ret));
+    }
+    return ret;
+}
+
+static void sd_bus_init_once() {
+    if (bus_initialized) return;
+
+    spi_bus_config_t bus_cfg = {};
+    bus_cfg.mosi_io_num = SD_MOSI_PIN;
+    bus_cfg.miso_io_num = SD_MISO_PIN;
+    bus_cfg.sclk_io_num = SD_CLK_PIN;
+    bus_cfg.quadwp_io_num = -1;
+    bus_cfg.quadhd_io_num = -1;
+    bus_cfg.max_transfer_sz = 4000;
+
+    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SDSPI_DEFAULT_DMA);
+    if (ret == ESP_OK) {
+        bus_initialized = true;
+    } else {
+        printf("[SD] SPI init failed: %s\n", esp_err_to_name(ret));
+    }
+}
 
 static void write_float_comma(FILE* f, float val) {
     char buf[32];
@@ -23,35 +69,46 @@ static void write_float_comma(FILE* f, float val) {
 }
 
 void sd_init() {
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
-    mount_config.format_if_mount_failed = false;
-    mount_config.max_files = 10;
-    mount_config.allocation_unit_size = 16 * 1024;
+    sd_prepare_configs();
+    sd_bus_init_once();
 
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.slot = SPI2_HOST;
-
-    spi_bus_config_t bus_cfg = {};
-    bus_cfg.mosi_io_num = SD_MOSI_PIN;
-    bus_cfg.miso_io_num = SD_MISO_PIN;
-    bus_cfg.sclk_io_num = SD_CLK_PIN;
-    bus_cfg.quadwp_io_num = -1;
-    bus_cfg.quadhd_io_num = -1;
-    bus_cfg.max_transfer_sz = 4000;
-
-    spi_bus_initialize(SPI2_HOST, &bus_cfg, SDSPI_DEFAULT_DMA);
-
-    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    slot_config.gpio_cs = (gpio_num_t)SD_CS_PIN;
-    slot_config.host_id = SPI2_HOST;
-
-    esp_err_t ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
-    if (ret != ESP_OK) {
-        printf("\n[ERROR] SD Card tidak terdeteksi atau gagal di-mount! (Code: %s)\n", esp_err_to_name(ret));
+    if (!bus_initialized) {
         g_sd_card_ready = false;
-    } else {
-        printf("\n[SUCCESS] SD Card berhasil di-mount!\n");
+        return;
+    }
+
+    sd_mount_card();
+}
+
+void sd_periodic_check() {
+    uint64_t total = 0;
+    uint64_t free = 0;
+    esp_err_t info_ret = esp_vfs_fat_info(mount_point, &total, &free);
+
+    if (info_ret == ESP_OK) {
+        if (!g_sd_card_ready) {
+            printf("[SD] Available.\n");
+        }
         g_sd_card_ready = true;
+        return;
+    }
+
+    if (g_sd_card_ready) {
+        printf("[SD] Lost. Remounting.\n");
+    }
+
+    g_sd_card_ready = false;
+    if (log_file != NULL) {
+        sd_stop_log();
+    }
+
+    if (card != NULL) {
+        esp_vfs_fat_sdcard_unmount(mount_point, card);
+        card = NULL;
+    }
+
+    if (bus_initialized) {
+        sd_mount_card();
     }
 }
 
@@ -132,5 +189,7 @@ float sd_get_used_percentage() {
 
         return percentage;
     }
+
+    g_sd_card_ready = false;
     return 0.0f;
 }

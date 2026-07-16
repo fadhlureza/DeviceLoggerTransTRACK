@@ -57,7 +57,7 @@ void sensor_read_task(void *pvParameters) {
             g_curr_voltage = voltage_read_actual();
             g_curr_acc_voltage = accumulator_read_actual();
             g_curr_temp_c = mcp9808_read_temp();
-            g_ignition = (gpio_get_level(IGNITION_PIN) == 1);
+            g_ignition = (gpio_get_level(IGNITION_PIN) & 1);
             adc_counter = 0;
         }
 
@@ -76,17 +76,19 @@ void logging_task(void *pvParameters) {
         uint32_t current_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
 
         if (current_ms - last_sd_check_time >= 5000) {
+            sd_periodic_check();
             g_sd_used_perc = sd_get_used_percentage();
             last_sd_check_time = current_ms;
         }
 
         if (g_is_logging && (current_ms - last_log_time >= g_sampling_rate_ms)) {
             time_t now;
-            struct tm timeinfo;
             time(&now);
-            localtime_r(&now, &timeinfo);
 
             char rtc_time_str[32];
+            time_t adjusted = now + ((time_t)g_timezone_offset_min * 60);
+            struct tm timeinfo;
+            gmtime_r(&adjusted, &timeinfo);
             strftime(rtc_time_str, sizeof(rtc_time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
             sd_write_data_row(rtc_time_str, g_curr_voltage, g_curr_acc_voltage, g_curr_fuel_raw, g_ignition ? 1 : 0,
@@ -113,7 +115,7 @@ extern "C" void app_main(void) {
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1ULL << IGNITION_PIN);
-    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 

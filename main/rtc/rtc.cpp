@@ -4,6 +4,29 @@
 #include <sys/time.h>
 #include <stdio.h>
 
+static time_t utc_tm_to_epoch(struct tm *timeinfo) {
+    static const int days_in_month[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+    int year = timeinfo->tm_year + 1900;
+    int month = timeinfo->tm_mon + 1;
+    int day = timeinfo->tm_mday;
+
+    int64_t days = 0;
+    for (int y = 1970; y < year; ++y) {
+        days += 365 + ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0));
+    }
+
+    for (int m = 1; m < month; ++m) {
+        days += days_in_month[m - 1];
+        if (m == 2 && ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))) {
+            days += 1;
+        }
+    }
+
+    days += day - 1;
+    return (time_t)(days * 86400 + (timeinfo->tm_hour * 3600) + (timeinfo->tm_min * 60) + timeinfo->tm_sec);
+}
+
 uint8_t bcd2dec(uint8_t val) {
     return (val >> 4) * 10 + (val & 0x0F);
 }
@@ -45,13 +68,13 @@ void rtc_init() {
         timeinfo.tm_year = bcd2dec(data[6]) + 2000 - 1900;
 
         struct timeval tv;
-        tv.tv_sec = mktime(&timeinfo);
+        tv.tv_sec = utc_tm_to_epoch(&timeinfo);
         tv.tv_usec = 0;
         settimeofday(&tv, NULL);
 
-        printf("[RTC] Sync successful!\n");
+        printf("[RTC] System time synced.\n");
     } else {
-        printf("[RTC] Error failed to read HW-084!\n");
+        printf("[RTC] Read failed.\n");
     }
 }
 
@@ -72,5 +95,5 @@ void rtc_set_time(int year, int month, int day, int hour, int min, int sec) {
     i2c_master_stop(cmd);
     i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
-    printf("[RTC] Waktu berhasil diset manual ke HW-084!\n");
+    printf("[RTC] RTC updated.\n");
 }

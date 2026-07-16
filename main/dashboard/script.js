@@ -112,10 +112,18 @@ function switchPage(pageId, btnElement) {
 
 // Fungsi Sync Waktu Lokal PC/HP ke Form
 function syncLocalTime() {
-    const now = new Date();
-    // Format YYYY-MM-DDThh:mm (wajib buat input type datetime-local)
-    const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0,16);
+    const localDateTime = formatDateTimeLocalFromDevice(new Date());
     document.getElementById('rtc-datetime').value = localDateTime;
+}
+
+function formatDateTimeLocalFromDevice(date) {
+    const localDate = new Date(date.getTime());
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    const hours = String(localDate.getHours()).padStart(2, '0');
+    const minutes = String(localDate.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 async function fetchData() {
@@ -141,7 +149,7 @@ async function fetchData() {
         
         // --- Update Teks Status (AC) ---
         // RTC
-        document.getElementById('rtc-time').innerText = "⌚ RTC: " + (data.rtc_time || "--:--:--");
+        document.getElementById('rtc-time').innerText = "⌚ RTC: " + (data.rtc_time || "---- --:--:--");
         // Battery
         document.getElementById('batt-status').innerText = "🔋 Batt: " + (data.batt_perc ? Math.round(data.batt_perc) + "%" : "--%");
         
@@ -258,13 +266,16 @@ async function updateConfig() {
         unixTimestamp = Math.floor(new Date(rtcInput).getTime() / 1000);
     }
 
+    const timezoneOffsetMin = -new Date().getTimezoneOffset();
+
     try {
         const response = await fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 sampling_rate_ms: rateMs,
-                rtc_timestamp: unixTimestamp
+                rtc_timestamp: unixTimestamp,
+                timezone_offset_min: timezoneOffsetMin
             })
         });
         if (response.ok) {

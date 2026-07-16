@@ -4,17 +4,17 @@
 #include <stdbool.h>
 
 // Micro SD card pins
-#define SD_MISO_PIN 9
-#define SD_MOSI_PIN 46
-#define SD_CLK_PIN  3
-#define SD_CS_PIN   8
+#define SD_MISO_PIN 19
+#define SD_MOSI_PIN 20
+#define SD_CLK_PIN  21
+#define SD_CS_PIN   47
 
 // IMU pins
-#define IMU_SDA_PIN 45
-#define IMU_SCL_PIN 35
+#define IMU_SDA_PIN 42
+#define IMU_SCL_PIN 41
 
 // IMU Registers
-#define BMI160_ADDR      0x68 
+#define BMI160_ADDR      0x69
 #define CMD_REG          0x7E
 #define ACC_CONF         0x40
 #define ACC_RANGE        0x41
@@ -84,3 +84,4 @@ inline volatile float g_curr_yaw = 0.0;
 inline volatile float g_batt_perc = 0.0;
 inline volatile float g_sd_used_perc = 0.0;
 inline volatile bool g_ignition = false;
+inline volatile int g_timezone_offset_min = 0;

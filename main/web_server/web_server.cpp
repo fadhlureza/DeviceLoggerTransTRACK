@@ -1,5 +1,6 @@
 #include "web_server.h"
 #include "constant.h"
+#include "rtc/rtc.h"
 #include "sd_logger.h"
 #include "esp_http_server.h"
 #include "cJSON.h"
@@ -7,6 +8,13 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+
+static void format_time_with_offset(time_t now, int offset_min, char *out, size_t out_size) {
+    time_t adjusted = now + ((time_t)offset_min * 60);
+    struct tm timeinfo;
+    gmtime_r(&adjusted, &timeinfo);
+    strftime(out, out_size, "%Y-%m-%d %H:%M:%S", &timeinfo);
+}
 
 extern const char index_html_start[] asm("_binary_index_html_start");
 extern const char style_css_start[] asm("_binary_style_css_start");
@@ -50,11 +58,9 @@ static esp_err_t data_handler(httpd_req_t *req) {
     if (check_auth(req) != ESP_OK) return ESP_FAIL;
 
     time_t now;
-    struct tm timeinfo;
     time(&now);
-    localtime_r(&now, &timeinfo);
-    char rtc_time_str[16];
-    strftime(rtc_time_str, sizeof(rtc_time_str), "%H:%M:%S", &timeinfo);
+    char rtc_time_str[32];
+    format_time_with_offset(now, g_timezone_offset_min, rtc_time_str, sizeof(rtc_time_str));
 
     char resp_str[650];
     snprintf(resp_str, sizeof(resp_str), 
@@ -112,6 +118,21 @@ static esp_err_t config_handler(httpd_req_t *req) {
         tv.tv_sec = rtc_ts->valueint;
         tv.tv_usec = 0;
         settimeofday(&tv, NULL);
+
+        struct tm utc_timeinfo;
+        gmtime_r(&tv.tv_sec, &utc_timeinfo);
+        rtc_set_time(
+            utc_timeinfo.tm_year + 1900,
+            utc_timeinfo.tm_mon + 1,
+            utc_timeinfo.tm_mday,
+            utc_timeinfo.tm_hour,
+            utc_timeinfo.tm_min,
+            utc_timeinfo.tm_sec);
+    }
+
+    cJSON *tz_offset = cJSON_GetObjectItem(json, "timezone_offset_min");
+    if (cJSON_IsNumber(tz_offset)) {
+        g_timezone_offset_min = tz_offset->valueint;
     }
 
     cJSON_Delete(json);
