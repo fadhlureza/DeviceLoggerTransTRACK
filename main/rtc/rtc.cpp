@@ -1,5 +1,6 @@
 #include "rtc.h"
 #include "driver/i2c.h"
+#include "constant.h"
 #include <sys/time.h>
 #include <stdio.h>
 

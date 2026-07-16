@@ -9,6 +9,7 @@
 #include "sd_logger/sd_logger.h"
 #include "fuel/fuel.h"
 #include "voltage/voltage.h"
+#include "accumulator/accumulator.h"
 #include "wifi_ap/wifi_ap.h"
 #include "web_server/web_server.h"
 #include <time.h>
@@ -53,8 +54,8 @@ void sensor_read_task(void *pvParameters) {
         adc_counter++;
         if (adc_counter >= 80) {
             g_curr_fuel_raw = fuel_read_raw();
-            g_curr_fuel_norm = fuel_read_normalized();
             g_curr_voltage = voltage_read_actual();
+            g_curr_acc_voltage = accumulator_read_actual();
             g_curr_temp_c = mcp9808_read_temp();
             g_ignition = (gpio_get_level(IGNITION_PIN) == 1);
             adc_counter = 0;
@@ -88,7 +89,7 @@ void logging_task(void *pvParameters) {
             char rtc_time_str[32];
             strftime(rtc_time_str, sizeof(rtc_time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
-            sd_write_data_row(rtc_time_str, g_curr_voltage, g_curr_voltage, g_curr_fuel_raw, g_ignition ? 1 : 0,
+            sd_write_data_row(rtc_time_str, g_curr_voltage, g_curr_acc_voltage, g_curr_fuel_raw, g_ignition ? 1 : 0,
                               g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2,
                               g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_temp_c);
             
@@ -99,16 +100,13 @@ void logging_task(void *pvParameters) {
 }
 
 extern "C" void app_main(void) {
-    adc_oneshot_unit_init_cfg_t adc_init_config = {};
-    adc_init_config.unit_id = ADC_UNIT_1;
-    adc_oneshot_new_unit(&adc_init_config, &g_adc1_handle);
-
     imu_init();
     imu_calibrate();
     mcp9808_init();
     rtc_init();
     fuel_sensor_init();
     voltage_sensor_init();
+    accumulator_sensor_init();
 
     // Ignition Pin Configuration
     gpio_config_t io_conf = {};

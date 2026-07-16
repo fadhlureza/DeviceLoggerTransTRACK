@@ -63,10 +63,9 @@
 
                     <!-- Fuel Level -->
                     <div class="card chart-card">
-                        <h3>Fuel Level (%)</h3>
+                        <h3>Fuel Stick Voltage</h3>
                         <div class="value-row">
-                            <span style="color: #ffa502;">Level: <span id="val-fuel">0.0</span>%</span>
-                            <span>Raw ADC: <span id="val-fuel-raw">0</span></span>
+                            <span style="color: #ffa502;">Voltage: <span id="val-fuel-raw">0.00</span> V</span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-fuel" width="400" height="150"></canvas>
@@ -77,10 +76,11 @@
                     <div class="card chart-card">
                         <h3>System Voltage & Ignition</h3>
                         <div class="value-row">
-                            <span style="color: #a4b0be;">Voltage: <span id="val-volt">0.00</span> V</span>
+                            <span style="color: #a4b0be;">Internal: <span id="val-volt">0.00</span> V</span>
+                            <span style="color: #ff9f43;">Accumulator: <span id="val-acc-volt">0.00</span> V</span>
                         </div>
                         <div class="canvas-wrapper">
-                            <canvas id="chart-ignition" width="400" height="150"></canvas>
+                            <canvas id="chart-voltage" width="400" height="150"></canvas>
                         </div>
                     </div>
 

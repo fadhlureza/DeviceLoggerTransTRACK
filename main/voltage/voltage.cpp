@@ -1,15 +1,17 @@
 #include "voltage.h"
 #include "constant.h"
+#include "../ina3221/ina3221.h"
 
 void voltage_sensor_init() {
-    adc_oneshot_chan_cfg_t config = {};
-    config.bitwidth = ADC_BITWIDTH_DEFAULT;
-    config.atten = ADC_ATTEN_DB_12;
-    adc_oneshot_config_channel(g_adc1_handle, VOLT_ADC_CHAN, &config);
+    (void)ina3221_init();
 }
 
 float voltage_read_actual() {
-    int val = 0;
-    adc_oneshot_read(g_adc1_handle, VOLT_ADC_CHAN, &val);
-    return ((float)val / ADC_MAX_VAL) * VOLT_MAX_VAL; 
+    float voltage = 0.0f;
+
+    if (ina3221_read_bus_voltage(INA3221_VOLTAGE_CHANNEL, &voltage) != ESP_OK) {
+        return 0.0f;
+    }
+
+    return voltage;
 }

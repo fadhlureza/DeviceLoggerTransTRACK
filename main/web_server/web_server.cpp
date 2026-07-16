@@ -58,8 +58,8 @@ static esp_err_t data_handler(httpd_req_t *req) {
 
     char resp_str[650];
     snprintf(resp_str, sizeof(resp_str), 
-             "{\"vib_raw_g\": %.3f, \"vib_uncalib_ms2\": %.3f, \"vib_calib_ms2\": %.3f, \"accX\": %.3f, \"accY\": %.3f, \"accZ\": %.3f, \"pitch\": %.3f, \"roll\": %.3f, \"yaw\": %.3f, \"fuel_raw\": %.3f, \"fuel_norm\": %.3f, \"voltage\": %.3f, \"temperature\": %.3f, \"is_logging\": %s, \"rate\": %d, \"sd_ready\": %s, \"sd_used_perc\": %.1f, \"batt_perc\": %.1f, \"ignition\": %s, \"rtc_time\": \"%s\"}", 
-             g_curr_vib_raw_g, g_curr_vib_uncalib_ms2, g_curr_vib_calib_ms2, g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2, g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_fuel_raw, g_curr_fuel_norm, g_curr_voltage, g_curr_temp_c,
+             "{\"vib_raw_g\": %.3f, \"vib_uncalib_ms2\": %.3f, \"vib_calib_ms2\": %.3f, \"accX\": %.3f, \"accY\": %.3f, \"accZ\": %.3f, \"pitch\": %.3f, \"roll\": %.3f, \"yaw\": %.3f, \"fuel_voltage\": %.3f, \"voltage\": %.3f, \"acc_voltage\": %.3f, \"temperature\": %.3f, \"is_logging\": %s, \"rate\": %d, \"sd_ready\": %s, \"sd_used_perc\": %.1f, \"batt_perc\": %.1f, \"ignition\": %s, \"rtc_time\": \"%s\"}", 
+             g_curr_vib_raw_g, g_curr_vib_uncalib_ms2, g_curr_vib_calib_ms2, g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2, g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_fuel_raw, g_curr_voltage, g_curr_acc_voltage, g_curr_temp_c,
              g_is_logging ? "true" : "false", g_sampling_rate_ms, g_sd_card_ready ? "true" : "false",
              g_sd_used_perc, g_batt_perc, g_ignition ? "true" : "false", rtc_time_str);
     

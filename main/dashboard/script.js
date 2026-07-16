@@ -11,6 +11,7 @@ const chartData = {
     orient: { pitch: [], roll: [], yaw: [] },
     fuel: [],
     voltage: [],
+    accVoltage: [],
     temperature: []
 };
 
@@ -71,11 +72,11 @@ function updateCharts() {
         [chartData.orient.pitch, chartData.orient.roll, chartData.orient.yaw], 
         ['#ff4757', '#2ed573', '#1e90ff'], -180, 180);
 
-    // 3. Gambar Chart Bensin (Range 0-100%)
-    drawLineChart('chart-fuel', [chartData.fuel], ['#ffa502'], 0, 100);
+    // 3. Gambar Chart Fuel Stick Voltage (Range 0-5 Volt)
+    drawLineChart('chart-fuel', [chartData.fuel], ['#ffa502'], 0, 5);
 
-    // 4. Gambar Chart Voltase (Range 0-15 Volt)
-    drawLineChart('chart-ignition', [chartData.voltage], ['#a4b0be'], 0, 15);
+    // 4. Gambar Chart Voltase Internal + Accumulator (Range 0-20 Volt)
+    drawLineChart('chart-voltage', [chartData.voltage, chartData.accVoltage], ['#a4b0be', '#ff9f43'], 0, 20);
 
     // 5. Gambar Chart Temperatur (Range -40 sampai 125 derajat C)
     drawLineChart('chart-temp', [chartData.temperature], ['#ff7f50'], 0, 100);
@@ -130,10 +131,10 @@ async function fetchData() {
         document.getElementById('val-acc-y').innerText = data.accY.toFixed(2);
         document.getElementById('val-acc-z').innerText = data.accZ.toFixed(2);
         
-        // Update Teks Bensin & Voltase
-        document.getElementById('val-fuel').innerText = data.fuel_norm.toFixed(1);
-        document.getElementById('val-fuel-raw').innerText = Math.round(data.fuel_raw);
+        // Update Teks Fuel Stick & Voltase
+        document.getElementById('val-fuel-raw').innerText = data.fuel_voltage.toFixed(2);
         document.getElementById('val-volt').innerText = data.voltage.toFixed(2);
+        document.getElementById('val-acc-volt').innerText = data.acc_voltage.toFixed(2);
 
         // Update Teks Temperatur
         document.getElementById('val-temp').innerText = data.temperature.toFixed(2);
@@ -174,8 +175,9 @@ async function fetchData() {
         pushData(chartData.orient.pitch, data.pitch);
         pushData(chartData.orient.roll, data.roll);
         pushData(chartData.orient.yaw, data.yaw);
-        pushData(chartData.fuel, data.fuel_norm);
+        pushData(chartData.fuel, data.fuel_voltage);
         pushData(chartData.voltage, data.voltage);
+        pushData(chartData.accVoltage, data.acc_voltage);
         pushData(chartData.temperature, data.temperature);
 
         // Render Ulang Grafik

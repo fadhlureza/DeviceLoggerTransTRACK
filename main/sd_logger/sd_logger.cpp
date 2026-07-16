@@ -74,12 +74,12 @@ bool sd_start_new_log() {
 
     fseek(log_file, 0, SEEK_END);
     if (ftell(log_file) == 0) {
-        fprintf(log_file, "Timestamp;Veh_Voltage;Int_Voltage;Fuel_Volt;Ignition;AccX;AccY;AccZ;Pitch;Roll;Yaw;Temperature\n");
+        fprintf(log_file, "Timestamp;Veh_Voltage;Acc_Voltage;Fuel_Volt;Ignition;AccX;AccY;AccZ;Pitch;Roll;Yaw;Temperature\n");
     }
     return true;
 }
 
-void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float int_voltage, float fuel_volt, int ignition, 
+    void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float acc_voltage, float fuel_volt, int ignition, 
                         float accX, float accY, float accZ, float pitch, float roll, float yaw, float temp_c) {
     if (log_file != NULL && g_sd_card_ready) {
         time_t now;
@@ -96,7 +96,7 @@ void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float int_v
 
         fprintf(log_file, "%s;", rtc_timestamp);
         write_float_comma(log_file, veh_voltage); fprintf(log_file, ";");
-        write_float_comma(log_file, int_voltage); fprintf(log_file, ";");
+        write_float_comma(log_file, acc_voltage); fprintf(log_file, ";");
         write_float_comma(log_file, fuel_volt); fprintf(log_file, ";");
         fprintf(log_file, "%d;", ignition);
         write_float_comma(log_file, accX); fprintf(log_file, ";");

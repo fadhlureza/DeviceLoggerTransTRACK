@@ -61,7 +61,7 @@ static esp_err_t writeRegister(uint8_t reg, uint8_t data) {
     uint8_t write_buf[2] = {reg, data};
     esp_err_t err = i2c_master_write_to_device(
         I2C_NUM_0, BMI160_ADDR, write_buf, sizeof(write_buf),
-        1000 / portTICK_PERIOD_MS);
+        pdMS_TO_TICKS(1000));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Write reg 0x%02X failed: %s", reg, esp_err_to_name(err));
     }
@@ -71,7 +71,7 @@ static esp_err_t writeRegister(uint8_t reg, uint8_t data) {
 static esp_err_t readRegister(uint8_t reg, uint8_t *buf, size_t len) {
     esp_err_t err = i2c_master_write_read_device(
         I2C_NUM_0, BMI160_ADDR, &reg, 1, buf, len,
-        1000 / portTICK_PERIOD_MS);
+        pdMS_TO_TICKS(1000));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Read reg 0x%02X failed: %s", reg, esp_err_to_name(err));
     }
@@ -105,7 +105,7 @@ static esp_err_t read_burst_with_retry(int16_t *ax, int16_t *ay, int16_t *az, in
     for (int attempt = 0; attempt < I2C_RETRY_COUNT; attempt++) {
         err = read_accel_gyro_burst(ax, ay, az, gx, gy, gz);
         if (err == ESP_OK) return ESP_OK;
-        vTaskDelay(5 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
     return err;
 }
@@ -124,11 +124,11 @@ static esp_err_t bmi160_check_who_am_i(void) {
 static esp_err_t bmi160_configure(void) {
     esp_err_t err = writeRegister(CMD_REG, 0x11);
     if (err != ESP_OK) return err;
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(50));
 
     err = writeRegister(CMD_REG, 0x15);
     if (err != ESP_OK) return err;
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     err = writeRegister(ACC_CONF, 0x2C);
     if (err != ESP_OK) return err;
@@ -139,7 +139,7 @@ static esp_err_t bmi160_configure(void) {
     err = writeRegister(GYR_RANGE, 0x00);
     if (err != ESP_OK) return err;
 
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
     return ESP_OK;
 }
 
@@ -152,7 +152,7 @@ static esp_err_t imu_recover(void) {
     ESP_LOGW(TAG, "Attempting BMI160 recovery (soft reset)...");
     esp_err_t err = writeRegister(CMD_REG, BMI160_CMD_SOFT_RESET);
     if (err != ESP_OK) return err;
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(50));
 
     err = bmi160_configure();
     if (err != ESP_OK) return err;
@@ -183,14 +183,14 @@ void imu_calibrate() {
         esp_err_t err = read_burst_with_retry(&ax, &ay, &az, &gx, &gy, &gz);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "Calibration sample %d failed, skipping", i);
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
         sumX += rawToG(ax);
         sumY += rawToG(ay);
         sumZ += rawToG(az);
         validSamples++;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     if (validSamples > 0) {

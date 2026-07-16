@@ -2,17 +2,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "esp_adc/adc_oneshot.h"
 
 // Micro SD card pins
-#define SD_MISO_PIN 19
-#define SD_MOSI_PIN 20
-#define SD_CLK_PIN  21
-#define SD_CS_PIN   47
+#define SD_MISO_PIN 9
+#define SD_MOSI_PIN 46
+#define SD_CLK_PIN  3
+#define SD_CS_PIN   8
 
 // IMU pins
-#define IMU_SDA_PIN 42
-#define IMU_SCL_PIN 41
+#define IMU_SDA_PIN 45
+#define IMU_SCL_PIN 35
 
 // IMU Registers
 #define BMI160_ADDR      0x68 
@@ -40,18 +39,21 @@
 #define DS3231_ADDR 0x68
 
 // Ignition Status Pin
-#define IGNITION_PIN GPIO_NUM_32
+#define IGNITION_PIN GPIO_NUM_1
 
 //Temperature sensor parameters
 #define MCP9808_ADDR 0x18
 #define MCP9808_REG_TEMP 0x05
 
-// Fuel and voltage sensor parameters
-#define FUEL_ADC_CHAN     ADC_CHANNEL_4
-#define VOLT_ADC_CHAN     ADC_CHANNEL_5
-#define ADC_MAX_VAL       4095.0f
-#define FUEL_PERCENT_MAX  100.0f
-#define VOLT_MAX_VAL      36.0f
+// Fuel sensor parameters
+#define FUEL_STICK_MAX_VOLT     5.0f
+
+// INA3221 parameters
+#define INA3221_ADDR              0x40
+#define INA3221_VOLTAGE_CHANNEL   3
+#define INA3221_FUEL_CHANNEL      2
+#define INA3221_ACCUMULATOR_CHANNEL 1
+#define INA3221_BUS_VOLT_LSB      0.008f
 
 // WiFi Settings
 #define ESP_WIFI_SSID      "DeviceLogger"
@@ -69,8 +71,8 @@ inline volatile float g_curr_vib_raw_g = 0.0;
 inline volatile float g_curr_vib_uncalib_ms2 = 0.0;
 inline volatile float g_curr_vib_calib_ms2 = 0.0;
 inline volatile float g_curr_fuel_raw = 0.0;
-inline volatile float g_curr_fuel_norm = 0.0;
 inline volatile float g_curr_voltage = 0.0;
+inline volatile float g_curr_acc_voltage = 0.0;
 inline volatile float g_curr_temp_c = 0.0;
 inline volatile float g_curr_accX_ms2 = 0.0;
 inline volatile float g_curr_accY_ms2 = 0.0;
@@ -82,5 +84,3 @@ inline volatile float g_curr_yaw = 0.0;
 inline volatile float g_batt_perc = 0.0;
 inline volatile float g_sd_used_perc = 0.0;
 inline volatile bool g_ignition = false;
-
-inline adc_oneshot_unit_handle_t g_adc1_handle = NULL;
