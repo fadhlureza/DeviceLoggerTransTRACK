@@ -29,9 +29,9 @@ void sensor_read_task(void *pvParameters) {
         float accX = 0.0, accY = 0.0, accZ = 0.0;
         float pitch = 0.0, roll = 0.0, yaw = 0.0;
         float batt_perc = 0.0;
-        bool ignition = false;
         
         imu_read_vibration_and_orientation(&raw_g, &uncalib_ms2, &calib_ms2, &accX, &accY, &accZ, &pitch, &roll, &yaw);
+        g_ignition = (gpio_get_level(IGNITION_PIN) == IGNITION_ACTIVE_LEVEL);
         
         g_curr_vib_raw_g = raw_g;
         g_curr_vib_uncalib_ms2 = uncalib_ms2;
@@ -42,7 +42,6 @@ void sensor_read_task(void *pvParameters) {
         g_curr_roll = roll;
         g_curr_yaw = yaw;
         g_batt_perc = batt_perc;
-        g_ignition = ignition;
 
         if (first_ema_read) {
             g_curr_vib_calib_ms2 = calib_ms2;
@@ -57,7 +56,6 @@ void sensor_read_task(void *pvParameters) {
             g_curr_voltage = voltage_read_actual();
             g_curr_acc_voltage = accumulator_read_actual();
             g_curr_temp_c = mcp9808_read_temp();
-            g_ignition = (gpio_get_level(IGNITION_PIN) & 1);
             adc_counter = 0;
         }
 

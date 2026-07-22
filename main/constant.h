@@ -40,6 +40,7 @@
 
 // Ignition Status Pin
 #define IGNITION_PIN GPIO_NUM_1
+#define IGNITION_ACTIVE_LEVEL 1
 
 //Temperature sensor parameters
 #define MCP9808_ADDR 0x18

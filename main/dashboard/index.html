@@ -7,20 +7,28 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
     <div class="app-container">
         <aside class="sidebar">
-            <div class="sidebar-header">
+            <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Device Logger</h2>
+                <button class="btn-close-sidebar" onclick="toggleSidebar()">✕</button>
             </div>
+
             <nav class="sidebar-nav">
                 <button class="nav-btn active" onclick="switchPage('data', this)">📊 Data Monitor</button>
                 <button class="nav-btn" onclick="switchPage('config', this)">⚙️ Configuration</button>
+                <button class="nav-btn" onclick="toggleTheme()" id="btn-theme" style="margin-top: auto;">🌙 Dark Mode</button>
             </nav>
         </aside>
 
         <main class="main-content">
             <header>
-                <h1 id="page-title">Data Monitor</h1>
+                <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
+                    <button class="btn-menu" onclick="toggleSidebar()">☰</button>
+                    <h1 id="page-title">Data Monitor</h1>
+                </div>
                 <!-- Menambahkan Status Data sesuai Acceptance Criteria -->
                 <div class="status-indicator">
                     <span id="rtc-time" class="badge neutral">⌚ RTC: ---- --:--:--</span>
@@ -39,9 +47,9 @@
                     <div class="card chart-card">
                         <h3>IMU Acceleration (m/s&sup2;)</h3>
                         <div class="value-row">
-                            <span style="color: #ff4757;">X: <span id="val-acc-x">0.00</span></span>
-                            <span style="color: #2ed573;">Y: <span id="val-acc-y">0.00</span></span>
-                            <span style="color: #1e90ff;">Z: <span id="val-acc-z">0.00</span></span>
+                            <span style="color: #EF3434;">X: <span id="val-acc-x">0.00</span></span>
+                            <span style="color: #12B76A;">Y: <span id="val-acc-y">0.00</span></span>
+                            <span style="color: #2E90FA;">Z: <span id="val-acc-z">0.00</span></span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-imu-accel" width="400" height="150"></canvas>
@@ -52,9 +60,9 @@
                     <div class="card chart-card">
                         <h3>IMU Orientation (&deg;)</h3>
                         <div class="value-row">
-                            <span style="color: #ff4757;">Pitch: <span id="val-pitch">0.00</span></span>
-                            <span style="color: #2ed573;">Roll: <span id="val-roll">0.00</span></span>
-                            <span style="color: #1e90ff;">Yaw: <span id="val-yaw">0.00</span></span>
+                            <span style="color: #EF3434;">Pitch: <span id="val-pitch">0.00</span></span>
+                            <span style="color: #12B76A;">Roll: <span id="val-roll">0.00</span></span>
+                            <span style="color: #2E90FA;">Yaw: <span id="val-yaw">0.00</span></span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-imu-orient" width="400" height="150"></canvas>
@@ -65,10 +73,21 @@
                     <div class="card chart-card">
                         <h3>Fuel Stick Voltage</h3>
                         <div class="value-row">
-                            <span style="color: #ffa502;">Voltage: <span id="val-fuel-raw">0.00</span> V</span>
+                            <span style="color: #F79009;">Voltage: <span id="val-fuel-raw">0.00</span> V</span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-fuel" width="400" height="150"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Ignition Chart -->
+                    <div class="card chart-card">
+                        <h3>Ignition Status Over Time</h3>
+                        <div class="value-row">
+                            <span style="color: #E30613;">Status: <span id="val-ign-chart">OFF</span></span>
+                        </div>
+                        <div class="canvas-wrapper">
+                            <canvas id="chart-ign" width="400" height="150"></canvas>
                         </div>
                     </div>
 
@@ -76,8 +95,8 @@
                     <div class="card chart-card">
                         <h3>System Voltage & Ignition</h3>
                         <div class="value-row">
-                            <span style="color: #a4b0be;">Internal: <span id="val-volt">0.00</span> V</span>
-                            <span style="color: #ff9f43;">Accumulator: <span id="val-acc-volt">0.00</span> V</span>
+                            <span style="color: #98A2B3;">Internal: <span id="val-volt">0.00</span> V</span>
+                            <span style="color: #F79009;">Accumulator: <span id="val-acc-volt">0.00</span> V</span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-voltage" width="400" height="150"></canvas>
@@ -88,7 +107,7 @@
                     <div class="card chart-card">
                         <h3>Module Temperature (&deg;C)</h3>
                         <div class="value-row">
-                            <span style="color: #ff7f50;">Temp: <span id="val-temp">0.00</span> &deg;C</span>
+                            <span style="color: #EF3434;">Temp: <span id="val-temp">0.00</span> &deg;C</span>
                         </div>
                         <div class="canvas-wrapper">
                             <canvas id="chart-temp" width="400" height="150"></canvas>

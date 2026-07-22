@@ -12,13 +12,15 @@ const chartData = {
     fuel: [],
     voltage: [],
     accVoltage: [],
-    temperature: []
+    temperature: [],
+    ignition: []
 };
 
 // Fungsi Universal buat nggambar grafik murni pake HTML5 Canvas
 function drawLineChart(canvasId, dataArrays, colors, yMin, yMax) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
+    canvas.width = canvas.parentElement.clientWidth;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
@@ -62,24 +64,27 @@ function drawLineChart(canvasId, dataArrays, colors, yMin, yMax) {
 }
 
 function updateCharts() {
-    // 1. Gambar Chart Akselerasi (Range +/- 30 m/s2)
+    // 1. Gambar Chart Akselerasi
     drawLineChart('chart-imu-accel', 
         [chartData.accel.x, chartData.accel.y, chartData.accel.z], 
-        ['#ff4757', '#2ed573', '#1e90ff'], -30, 30);
+        ['#EF3434', '#12B76A', '#2E90FA'], -30, 30); // Merah, Hijau, Biru Modern
     
-    // 2. Gambar Chart Orientasi (Range +/- 180 derajat)
+    // 2. Gambar Chart Orientasi
     drawLineChart('chart-imu-orient', 
         [chartData.orient.pitch, chartData.orient.roll, chartData.orient.yaw], 
-        ['#ff4757', '#2ed573', '#1e90ff'], -180, 180);
+        ['#EF3434', '#12B76A', '#2E90FA'], -180, 180);
 
-    // 3. Gambar Chart Fuel Stick Voltage (Range 0-5 Volt)
-    drawLineChart('chart-fuel', [chartData.fuel], ['#ffa502'], 0, 5);
+    // 3. Gambar Chart Fuel Stick Voltage
+    drawLineChart('chart-fuel', [chartData.fuel], ['#F79009'], 0, 5); // Warning Orange
 
-    // 4. Gambar Chart Voltase Internal + Accumulator (Range 0-20 Volt)
-    drawLineChart('chart-voltage', [chartData.voltage, chartData.accVoltage], ['#a4b0be', '#ff9f43'], 0, 20);
+    // 4. Gambar Chart Voltase Internal + Accumulator
+    drawLineChart('chart-voltage', [chartData.voltage, chartData.accVoltage], ['#98A2B3', '#F79009'], 0, 20); // Gray & Orange
 
-    // 5. Gambar Chart Temperatur (Range -40 sampai 125 derajat C)
-    drawLineChart('chart-temp', [chartData.temperature], ['#ff7f50'], 0, 100);
+    // 5. Gambar Chart Temperatur
+    drawLineChart('chart-temp', [chartData.temperature], ['#EF3434'], 0, 100);
+
+    // 6. Gambar Chart Ignition (ON/OFF)
+    drawLineChart('chart-ign', [chartData.ignition], ['#E30613'], -0.2, 1.2);
 }
 
 // Fungsi buat nge-push data ke array dan ngebuang data lama
@@ -108,6 +113,16 @@ function switchPage(pageId, btnElement) {
         'config': 'Configuration'
     };
     document.getElementById('page-title').innerText = titles[pageId];
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+    const btn = document.getElementById('btn-theme');
+    if (document.body.classList.contains('dark-theme')) {
+        btn.innerText = "☀️ Light Mode";
+    } else {
+        btn.innerText = "🌙 Dark Mode";
+    }
 }
 
 // Fungsi Sync Waktu Lokal PC/HP ke Form
@@ -143,6 +158,7 @@ async function fetchData() {
         document.getElementById('val-fuel-raw').innerText = data.fuel_voltage.toFixed(2);
         document.getElementById('val-volt').innerText = data.voltage.toFixed(2);
         document.getElementById('val-acc-volt').innerText = data.acc_voltage.toFixed(2);
+        document.getElementById('val-ign-chart').innerText = data.ignition ? "ON (1)" : "OFF (0)";
 
         // Update Teks Temperatur
         document.getElementById('val-temp').innerText = data.temperature.toFixed(2);
@@ -186,6 +202,7 @@ async function fetchData() {
         pushData(chartData.fuel, data.fuel_voltage);
         pushData(chartData.voltage, data.voltage);
         pushData(chartData.accVoltage, data.acc_voltage);
+        pushData(chartData.ignition, data.ignition ? 1 : 0);
         pushData(chartData.temperature, data.temperature);
 
         // Render Ulang Grafik
@@ -226,7 +243,7 @@ function updateLoggingUI(status) {
 
 async function toggleLogging() {
     if (!isLogging && !isSdReady) {
-        alert("SD Card ga kebaca cok! Pasang dulu yang bener terus restart ESP32-nya.");
+        alert("SD Card not mounted.");
         return;
     }
 
@@ -249,7 +266,7 @@ async function toggleLogging() {
             updateLoggingUI(newState);
         }
     } catch (error) {
-        alert("Gagal konek ke ESP32");
+        alert("Failed to communicate with ESP32");
     }
 }
 
@@ -279,10 +296,22 @@ async function updateConfig() {
             })
         });
         if (response.ok) {
-            alert("Config berhasil di-save!");
+            alert("Config saved successfully");
         }
     } catch (error) {
-        alert("Gagal save config");
+        alert("Failed to save config");
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    } else {
+        sidebar.classList.toggle('collapsed');
     }
 }
 
