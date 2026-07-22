@@ -136,7 +136,7 @@ bool sd_start_new_log() {
     return true;
 }
 
-    void sd_write_data_row(const char* rtc_timestamp, float veh_voltage, float acc_voltage, float fuel_volt, int ignition, 
+    void sd_write_data_row(const char* rtc_timestamp, float dev_voltage, float acc_voltage, float fuel_volt, int ignition, 
                         float accX, float accY, float accZ, float pitch, float roll, float yaw, float temp_c) {
     if (log_file != NULL && g_sd_card_ready) {
         time_t now;
@@ -152,7 +152,7 @@ bool sd_start_new_log() {
         if (log_file == NULL) return;
 
         fprintf(log_file, "%s;", rtc_timestamp);
-        write_float_comma(log_file, veh_voltage); fprintf(log_file, ";");
+        write_float_comma(log_file, dev_voltage); fprintf(log_file, ";");
         write_float_comma(log_file, acc_voltage); fprintf(log_file, ";");
         write_float_comma(log_file, fuel_volt); fprintf(log_file, ";");
         fprintf(log_file, "%d;", ignition);
