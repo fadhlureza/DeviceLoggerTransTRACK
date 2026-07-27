@@ -118,10 +118,8 @@ function switchPage(pageId, btnElement) {
 function toggleTheme() {
     document.body.classList.toggle('dark-theme');
     const btn = document.getElementById('btn-theme');
-    if (document.body.classList.contains('dark-theme')) {
-        btn.innerText = "☀️ Light Mode";
-    } else {
-        btn.innerText = "🌙 Dark Mode";
+    if (btn) {
+        btn.innerText = document.body.classList.contains('dark-theme') ? "☀️" : "🌙";
     }
 }
 
@@ -166,8 +164,20 @@ async function fetchData() {
         // --- Update Teks Status (AC) ---
         // RTC
         document.getElementById('rtc-time').innerText = "⌚ RTC: " + (data.rtc_time || "---- --:--:--");
-        // Battery
-        document.getElementById('batt-status').innerText = "🔋 Batt: " + (data.batt_perc ? Math.round(data.batt_perc) + "%" : "--%");
+        // Battery: Green >30%, Red <=30%
+        const battBadge = document.getElementById('batt-status');
+        if (data.batt_perc !== undefined && data.batt_perc !== null && !isNaN(data.batt_perc)) {
+            let battVal = Math.round(data.batt_perc);
+            battBadge.innerText = "🔋 Batt: " + battVal + "%";
+            if (battVal > 30) {
+                battBadge.className = "badge on";
+            } else {
+                battBadge.className = "badge off";
+            }
+        } else {
+            battBadge.innerText = "🔋 Batt: --%";
+            battBadge.className = "badge neutral";
+        }
         
         // SD Card & Storage
         isSdReady = data.sd_ready;
@@ -312,6 +322,61 @@ function toggleSidebar() {
         overlay.classList.toggle('active');
     } else {
         sidebar.classList.toggle('collapsed');
+    }
+}
+
+async function downloadAllZip() {
+    const btn = document.getElementById('btn-download-zip');
+    const originalText = btn ? btn.innerText : '📦 Download All (ZIP)';
+
+    try {
+        if (btn) btn.innerText = 'Fetching file list...';
+
+        const res = await fetch('/api/files');
+        if (!res.ok) throw new Error('Failed to fetch file list');
+        const files = await res.json();
+
+        if (!Array.isArray(files) || files.length === 0) {
+            alert('No CSV log files found on SD card.');
+            if (btn) btn.innerText = originalText;
+            return;
+        }
+
+        const zip = new JSZip();
+        const total = files.length;
+
+        for (let i = 0; i < total; i++) {
+            const fileObj = files[i];
+            const fileName = typeof fileObj === 'string' ? fileObj : fileObj.name;
+            if (!fileName) continue;
+
+            if (btn) btn.innerText = `Downloading... ${i + 1}/${total}`;
+
+            const fileRes = await fetch(`/download?file=${encodeURIComponent(fileName)}`);
+            if (!fileRes.ok) {
+                console.error(`Failed to download ${fileName}`);
+                continue;
+            }
+            const blob = await fileRes.blob();
+            zip.file(fileName, blob);
+        }
+
+        if (btn) btn.innerText = 'Zipping files...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = 'DAQ_Telemetry_Logs.zip';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+    } catch (error) {
+        console.error('Download ZIP error:', error);
+        alert('Failed to download ZIP: ' + error.message);
+    } finally {
+        if (btn) btn.innerText = originalText;
     }
 }
 

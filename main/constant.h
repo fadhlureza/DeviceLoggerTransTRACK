@@ -56,6 +56,10 @@
 #define INA3221_ACCUMULATOR_CHANNEL 1
 #define INA3221_BUS_VOLT_LSB      0.008f
 
+// Battery Percentage Parameters (Internal Voltage)
+#define BATT_MIN_VOLTAGE 3.3f
+#define BATT_MAX_VOLTAGE 4.2f
+
 // WiFi Settings
 #define ESP_WIFI_SSID      "DeviceLogger"
 #define ESP_WIFI_PASS      "12345678"

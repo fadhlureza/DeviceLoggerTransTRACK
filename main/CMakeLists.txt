@@ -22,4 +22,5 @@ idf_component_register(SRCS "main.cpp"
                                 "rtc"
                 EMBED_TXTFILES "dashboard/index.html"
                                 "dashboard/style.css"
-                                "dashboard/script.js")
+                                "dashboard/script.js"
+                                "dashboard/jszip.min.js")

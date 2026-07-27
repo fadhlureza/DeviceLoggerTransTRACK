@@ -5,9 +5,13 @@
 #include "esp_http_server.h"
 #include "cJSON.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static void format_time_with_offset(time_t now, int offset_min, char *out, size_t out_size) {
     time_t adjusted = now + ((time_t)offset_min * 60);
@@ -19,6 +23,7 @@ static void format_time_with_offset(time_t now, int offset_min, char *out, size_
 extern const char index_html_start[] asm("_binary_index_html_start");
 extern const char style_css_start[] asm("_binary_style_css_start");
 extern const char script_js_start[] asm("_binary_script_js_start");
+extern const char jszip_min_js_start[] asm("_binary_jszip_min_js_start");
 
 #define BASIC_AUTH_B64 "Basic YWRtaW46YWRtaW4="
 
@@ -51,6 +56,12 @@ static esp_err_t css_handler(httpd_req_t *req) {
 static esp_err_t js_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "application/javascript");
     httpd_resp_sendstr(req, script_js_start);
+    return ESP_OK;
+}
+
+static esp_err_t jszip_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_sendstr(req, jszip_min_js_start);
     return ESP_OK;
 }
 
@@ -112,27 +123,30 @@ static esp_err_t config_handler(httpd_req_t *req) {
     cJSON *rate = cJSON_GetObjectItem(json, "sampling_rate_ms");
     if (cJSON_IsNumber(rate)) g_sampling_rate_ms = rate->valueint;
 
+    cJSON *tz_offset = cJSON_GetObjectItem(json, "timezone_offset_min");
+    int tz_min = 0;
+    if (cJSON_IsNumber(tz_offset)) {
+        tz_min = tz_offset->valueint;
+    }
+    g_timezone_offset_min = 0;
+
     cJSON *rtc_ts = cJSON_GetObjectItem(json, "rtc_timestamp");
     if (cJSON_IsNumber(rtc_ts) && rtc_ts->valueint > 0) {
+        time_t local_sec = (time_t)rtc_ts->valueint + ((time_t)tz_min * 60);
         struct timeval tv;
-        tv.tv_sec = rtc_ts->valueint;
+        tv.tv_sec = local_sec;
         tv.tv_usec = 0;
         settimeofday(&tv, NULL);
 
-        struct tm utc_timeinfo;
-        gmtime_r(&tv.tv_sec, &utc_timeinfo);
+        struct tm local_timeinfo;
+        gmtime_r(&local_sec, &local_timeinfo);
         rtc_set_time(
-            utc_timeinfo.tm_year + 1900,
-            utc_timeinfo.tm_mon + 1,
-            utc_timeinfo.tm_mday,
-            utc_timeinfo.tm_hour,
-            utc_timeinfo.tm_min,
-            utc_timeinfo.tm_sec);
-    }
-
-    cJSON *tz_offset = cJSON_GetObjectItem(json, "timezone_offset_min");
-    if (cJSON_IsNumber(tz_offset)) {
-        g_timezone_offset_min = tz_offset->valueint;
+            local_timeinfo.tm_year + 1900,
+            local_timeinfo.tm_mon + 1,
+            local_timeinfo.tm_mday,
+            local_timeinfo.tm_hour,
+            local_timeinfo.tm_min,
+            local_timeinfo.tm_sec);
     }
 
     cJSON_Delete(json);
@@ -141,15 +155,129 @@ static esp_err_t config_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t files_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_FAIL;
+
+    cJSON *root = cJSON_CreateArray();
+    if (!root) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Memory allocation failed");
+        return ESP_FAIL;
+    }
+
+    DIR *dir = opendir("/sdcard");
+    if (dir != NULL) {
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            size_t len = strlen(entry->d_name);
+            if (len > 4 && strcasecmp(entry->d_name + len - 4, ".csv") == 0) {
+                char filepath[320];
+                snprintf(filepath, sizeof(filepath), "/sdcard/%s", entry->d_name);
+
+                struct stat st;
+                char size_buf[32];
+                if (stat(filepath, &st) == 0) {
+                    if (st.st_size >= 1024 * 1024) {
+                        snprintf(size_buf, sizeof(size_buf), "%.1f MB", (double)st.st_size / (1024.0 * 1024.0));
+                    } else if (st.st_size >= 1024) {
+                        snprintf(size_buf, sizeof(size_buf), "%ld KB", (long)(st.st_size / 1024));
+                    } else {
+                        snprintf(size_buf, sizeof(size_buf), "%ld B", (long)st.st_size);
+                    }
+                } else {
+                    snprintf(size_buf, sizeof(size_buf), "0 B");
+                }
+
+                cJSON *item = cJSON_CreateObject();
+                if (item) {
+                    cJSON_AddStringToObject(item, "name", entry->d_name);
+                    cJSON_AddStringToObject(item, "size", size_buf);
+                    cJSON_AddItemToArray(root, item);
+                }
+            }
+        }
+        closedir(dir);
+    }
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    httpd_resp_set_type(req, "application/json");
+    if (json_str) {
+        httpd_resp_sendstr(req, json_str);
+        cJSON_free(json_str);
+    } else {
+        httpd_resp_sendstr(req, "[]");
+    }
+    cJSON_Delete(root);
+
+    return ESP_OK;
+}
+
+static esp_err_t download_handler(httpd_req_t *req) {
+    if (check_auth(req) != ESP_OK) return ESP_FAIL;
+
+    char query[256];
+    char filename[128];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK ||
+        httpd_query_key_value(query, "file", filename, sizeof(filename)) != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing 'file' parameter");
+        return ESP_FAIL;
+    }
+
+    char filepath[320];
+    if (strncmp(filename, "/sdcard/", 8) == 0) {
+        snprintf(filepath, sizeof(filepath), "%s", filename);
+    } else if (filename[0] == '/') {
+        snprintf(filepath, sizeof(filepath), "/sdcard%s", filename);
+    } else {
+        snprintf(filepath, sizeof(filepath), "/sdcard/%s", filename);
+    }
+
+    FILE *f = fopen(filepath, "r");
+    if (!f) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "text/csv");
+    const char *basename = strrchr(filepath, '/');
+    basename = basename ? basename + 1 : filepath;
+    char disposition[512];
+    snprintf(disposition, sizeof(disposition), "attachment; filename=\"%s\"", basename);
+    httpd_resp_set_hdr(req, "Content-Disposition", disposition);
+
+    char *chunk = (char *)malloc(4096);
+    if (!chunk) {
+        fclose(f);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Memory allocation failed");
+        return ESP_FAIL;
+    }
+
+    size_t read_bytes;
+    esp_err_t res = ESP_OK;
+    while ((read_bytes = fread(chunk, 1, 4096, f)) > 0) {
+        if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK) {
+            res = ESP_FAIL;
+            break;
+        }
+    }
+    fclose(f);
+    free(chunk);
+
+    httpd_resp_send_chunk(req, NULL, 0);
+    return res;
+}
+
 static const httpd_uri_t uri_index = { .uri = "/", .method = HTTP_GET, .handler = index_handler, .user_ctx = NULL };
 static const httpd_uri_t uri_css = { .uri = "/style.css", .method = HTTP_GET, .handler = css_handler, .user_ctx = NULL };
 static const httpd_uri_t uri_js = { .uri = "/script.js", .method = HTTP_GET, .handler = js_handler, .user_ctx = NULL };
+static const httpd_uri_t uri_jszip = { .uri = "/jszip.min.js", .method = HTTP_GET, .handler = jszip_handler, .user_ctx = NULL };
 static const httpd_uri_t uri_data = { .uri = "/api/data", .method = HTTP_GET, .handler = data_handler, .user_ctx = NULL };
 static const httpd_uri_t uri_config = { .uri = "/api/config", .method = HTTP_POST, .handler = config_handler, .user_ctx = NULL };
+static const httpd_uri_t uri_files = { .uri = "/api/files", .method = HTTP_GET, .handler = files_handler, .user_ctx = NULL };
+static const httpd_uri_t uri_download = { .uri = "/download", .method = HTTP_GET, .handler = download_handler, .user_ctx = NULL };
 
 void start_webserver() {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 8;
+    config.max_uri_handlers = 12;
     config.stack_size = 8192;
     httpd_handle_t server = NULL;
 
@@ -157,7 +285,10 @@ void start_webserver() {
         httpd_register_uri_handler(server, &uri_index);
         httpd_register_uri_handler(server, &uri_css);
         httpd_register_uri_handler(server, &uri_js);
+        httpd_register_uri_handler(server, &uri_jszip);
         httpd_register_uri_handler(server, &uri_data);
         httpd_register_uri_handler(server, &uri_config);
+        httpd_register_uri_handler(server, &uri_files);
+        httpd_register_uri_handler(server, &uri_download);
     }
 }

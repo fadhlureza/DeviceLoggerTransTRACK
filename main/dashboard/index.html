@@ -11,15 +11,24 @@
 
     <div class="app-container">
         <aside class="sidebar">
-            <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Device Logger</h2>
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <h2 class="brand-text">Device Logger</h2>
+                    <span class="mini-brand-logo" title="Device Logger">DAQ</span>
+                    <button class="btn-theme-toggle" onclick="toggleTheme()" id="btn-theme" title="Toggle Dark/Light Mode">🌙</button>
+                </div>
                 <button class="btn-close-sidebar" onclick="toggleSidebar()">✕</button>
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-btn active" onclick="switchPage('data', this)">📊 Data Monitor</button>
-                <button class="nav-btn" onclick="switchPage('config', this)">⚙️ Configuration</button>
-                <button class="nav-btn" onclick="toggleTheme()" id="btn-theme" style="margin-top: auto;">🌙 Dark Mode</button>
+                <button class="nav-btn active" onclick="switchPage('data', this)" title="Data Monitor">
+                    <span class="nav-btn-icon">📊</span>
+                    <span class="nav-btn-text">Data Monitor</span>
+                </button>
+                <button class="nav-btn" onclick="switchPage('config', this)" title="Configuration">
+                    <span class="nav-btn-icon">⚙️</span>
+                    <span class="nav-btn-text">Configuration</span>
+                </button>
             </nav>
         </aside>
 
@@ -138,11 +147,13 @@
                     <div class="button-group">
                         <button id="btn-update" onclick="updateConfig()">Save Config</button>
                         <button id="btn-toggle-log" class="btn-start" onclick="toggleLogging()">START LOGGING</button>
+                        <button id="btn-download-zip" class="btn-secondary" onclick="downloadAllZip()">📦 Download All (ZIP)</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
+    <script src="jszip.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
