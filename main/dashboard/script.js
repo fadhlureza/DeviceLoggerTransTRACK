@@ -136,7 +136,8 @@ function formatDateTimeLocalFromDevice(date) {
     const day = String(localDate.getDate()).padStart(2, '0');
     const hours = String(localDate.getHours()).padStart(2, '0');
     const minutes = String(localDate.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const seconds = String(localDate.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
 async function fetchData() {

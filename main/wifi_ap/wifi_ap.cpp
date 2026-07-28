@@ -2,8 +2,10 @@
 #include "constant.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
+#include "esp_mac.h"
 #include "nvs_flash.h"
 #include <string.h>
+#include <stdio.h>
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     if (event_id == WIFI_EVENT_AP_STACONNECTED) {
@@ -28,9 +30,15 @@ void wifi_ap_init() {
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
 
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+
+    char dynamic_ssid[32];
+    snprintf(dynamic_ssid, sizeof(dynamic_ssid), "%s-%02X%02X", ESP_WIFI_SSID, mac[4], mac[5]);
+
     wifi_config_t wifi_config = {};
-    strcpy((char *)wifi_config.ap.ssid, ESP_WIFI_SSID);
-    wifi_config.ap.ssid_len = strlen(ESP_WIFI_SSID);
+    strcpy((char *)wifi_config.ap.ssid, dynamic_ssid);
+    wifi_config.ap.ssid_len = strlen(dynamic_ssid);
     strcpy((char *)wifi_config.ap.password, ESP_WIFI_PASS);
     wifi_config.ap.channel = ESP_WIFI_CHANNEL;
     wifi_config.ap.max_connection = ESP_MAX_STA_CONN;
@@ -43,4 +51,5 @@ void wifi_ap_init() {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+    printf("[WiFi] AP Started with SSID: %s\n", dynamic_ssid);
 }
