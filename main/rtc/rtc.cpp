@@ -35,7 +35,7 @@ uint8_t dec2bcd(uint8_t val) {
     return ((val / 10) << 4) + (val % 10);
 }
 
-void rtc_init() {
+bool rtc_read_and_sync() {
     uint8_t data[7];
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     
@@ -54,7 +54,7 @@ void rtc_init() {
     i2c_master_read_byte(cmd, &data[6], I2C_MASTER_NACK);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(50));
     i2c_cmd_link_delete(cmd);
 
     if (ret == ESP_OK) {
@@ -72,13 +72,25 @@ void rtc_init() {
         tv.tv_usec = 0;
         settimeofday(&tv, NULL);
 
-        printf("[RTC] System time synced.\n");
+        if (!g_rtc_ready) {
+            printf("[RTC] Module connected/re-synced! System time updated.\n");
+        }
+        g_rtc_ready = true;
+        return true;
     } else {
-        printf("[RTC] Read failed.\n");
+        if (g_rtc_ready) {
+            printf("[RTC] Module disconnected!\n");
+        }
+        g_rtc_ready = false;
+        return false;
     }
 }
 
-void rtc_set_time(int year, int month, int day, int hour, int min, int sec) {
+void rtc_init() {
+    rtc_read_and_sync();
+}
+
+bool rtc_set_time(int year, int month, int day, int hour, int min, int sec) {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (DS3231_ADDR << 1) | I2C_MASTER_WRITE, true);
@@ -93,7 +105,16 @@ void rtc_set_time(int year, int month, int day, int hour, int min, int sec) {
     i2c_master_write_byte(cmd, dec2bcd(year - 2000), true);
     
     i2c_master_stop(cmd);
-    i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
-    printf("[RTC] RTC updated.\n");
+    
+    if (ret == ESP_OK) {
+        g_rtc_ready = true;
+        printf("[RTC] RTC updated.\n");
+        return true;
+    } else {
+        g_rtc_ready = false;
+        printf("[RTC] Failed to update RTC. Disconnected.\n");
+        return false;
+    }
 }

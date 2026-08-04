@@ -1,133 +1,203 @@
-#include <stdio.h>
+#include "accumulator/accumulator.h"
+#include "constant.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_timer.h"
-#include "constant.h"
+#include "fuel/fuel.h"
 #include "imu/imu.h"
 #include "rtc/rtc.h"
-#include "temperature/temperature.h"
 #include "sd_logger/sd_logger.h"
-#include "fuel/fuel.h"
+#include "temperature/temperature.h"
 #include "voltage/voltage.h"
-#include "accumulator/accumulator.h"
-#include "wifi_ap/wifi_ap.h"
 #include "web_server/web_server.h"
-#include <time.h>
+#include "wifi_ap/wifi_ap.h"
+#include <stdio.h>
 #include <sys/time.h>
-#include "driver/gpio.h"
+#include <time.h>
 
 volatile float g_ema_alpha = 0.2f;
 volatile bool first_ema_read = true;
 
 void sensor_read_task(void *pvParameters) {
-    const uint64_t SAMPLING_PERIOD_US = 625;
-    uint64_t next_sample_time = esp_timer_get_time();
-    uint32_t adc_counter = 0;
+  const uint64_t SAMPLING_PERIOD_US = 625;
+  uint64_t next_sample_time = esp_timer_get_time();
+  uint32_t adc_counter = 0;
+  static bool prev_ignition = false;
 
-    while (1) {
-        float raw_g = 0.0, uncalib_ms2 = 0.0, calib_ms2 = 0.0;
-        float accX = 0.0, accY = 0.0, accZ = 0.0;
-        float pitch = 0.0, roll = 0.0, yaw = 0.0;
-        
-        imu_read_vibration_and_orientation(&raw_g, &uncalib_ms2, &calib_ms2, &accX, &accY, &accZ, &pitch, &roll, &yaw);
-        g_ignition = (gpio_get_level(IGNITION_PIN) == IGNITION_ACTIVE_LEVEL);
-        
-        g_curr_vib_raw_g = raw_g;
-        g_curr_vib_uncalib_ms2 = uncalib_ms2;
-        g_curr_accX_ms2 = accX;
-        g_curr_accY_ms2 = accY;
-        g_curr_accZ_ms2 = accZ;
-        g_curr_pitch = pitch;
-        g_curr_roll = roll;
-        g_curr_yaw = yaw;
+  while (1) {
+    float raw_g = 0.0, uncalib_ms2 = 0.0, calib_ms2 = 0.0;
+    float accX = 0.0, accY = 0.0, accZ = 0.0;
+    float pitch = 0.0, roll = 0.0, yaw = 0.0;
 
-        if (first_ema_read) {
-            g_curr_vib_calib_ms2 = calib_ms2;
-            first_ema_read = false;
-        } else {
-            g_curr_vib_calib_ms2 = (g_ema_alpha * calib_ms2) + ((1.0f - g_ema_alpha) * g_curr_vib_calib_ms2);
-        }
+    imu_read_vibration_and_orientation(&raw_g, &uncalib_ms2, &calib_ms2, &accX,
+                                       &accY, &accZ, &pitch, &roll, &yaw);
+    bool curr_ign = (gpio_get_level(IGNITION_PIN) == IGNITION_ACTIVE_LEVEL);
+    g_ignition = curr_ign;
 
-        adc_counter++;
-        if (adc_counter >= 80) {
-            g_curr_fuel_raw = fuel_read_raw();
-            g_curr_voltage = voltage_read_actual();
-            g_curr_acc_voltage = accumulator_read_actual();
-            g_curr_temp_c = mcp9808_read_temp();
-
-            if (g_curr_voltage <= BATT_MIN_VOLTAGE) {
-                g_batt_perc = 0.0f;
-            } else if (g_curr_voltage >= BATT_MAX_VOLTAGE) {
-                g_batt_perc = 100.0f;
-            } else {
-                g_batt_perc = ((g_curr_voltage - BATT_MIN_VOLTAGE) / (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE)) * 100.0f;
-            }
-
-            adc_counter = 0;
-        }
-
-        next_sample_time += SAMPLING_PERIOD_US;
-        while (esp_timer_get_time() < next_sample_time) {
-            taskYIELD();
-        }
+    // Edge detection for Ignition state
+    if (!prev_ignition && curr_ign) {
+      wifi_ap_enable();
+    } else if (prev_ignition && !curr_ign) {
+      wifi_ap_disable();
     }
+    prev_ignition = curr_ign;
+
+    g_curr_vib_raw_g = raw_g;
+    g_curr_vib_uncalib_ms2 = uncalib_ms2;
+    g_curr_accX_ms2 = accX;
+    g_curr_accY_ms2 = accY;
+    g_curr_accZ_ms2 = accZ;
+    g_curr_pitch = pitch;
+    g_curr_roll = roll;
+    g_curr_yaw = yaw;
+
+    if (first_ema_read) {
+      g_curr_vib_calib_ms2 = calib_ms2;
+      first_ema_read = false;
+    } else {
+      g_curr_vib_calib_ms2 = (g_ema_alpha * calib_ms2) +
+                             ((1.0f - g_ema_alpha) * g_curr_vib_calib_ms2);
+    }
+
+    adc_counter++;
+    if (adc_counter >= 80) {
+      g_curr_fuel_raw = fuel_read_raw();
+      g_curr_voltage = voltage_read_actual();
+      g_curr_acc_voltage = accumulator_read_actual();
+      g_curr_temp_c = mcp9808_read_temp();
+
+      if (g_curr_voltage <= BATT_MIN_VOLTAGE) {
+        g_batt_perc = 0.0f;
+      } else if (g_curr_voltage >= BATT_MAX_VOLTAGE) {
+        g_batt_perc = 100.0f;
+      } else {
+        g_batt_perc = ((g_curr_voltage - BATT_MIN_VOLTAGE) /
+                       (BATT_MAX_VOLTAGE - BATT_MIN_VOLTAGE)) *
+                      100.0f;
+      }
+
+      adc_counter = 0;
+    }
+
+    next_sample_time += SAMPLING_PERIOD_US;
+    while (esp_timer_get_time() < next_sample_time) {
+      taskYIELD();
+    }
+  }
 }
 
 void logging_task(void *pvParameters) {
-    uint32_t last_log_time = 0;
-    uint32_t last_sd_check_time = 0;
+  uint32_t last_log_time = 0;
+  uint32_t last_sd_remount_time = 0;
+  uint32_t last_rtc_check_time = 0;
 
-    while(1){
-        uint32_t current_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
+  while (1) {
+    uint32_t current_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
 
-        if (current_ms - last_sd_check_time >= 5000) {
-            sd_periodic_check();
-            g_sd_used_perc = sd_get_used_percentage();
-            last_sd_check_time = current_ms;
-        }
-
-        if (g_is_logging && (current_ms - last_log_time >= g_sampling_rate_ms)) {
-            time_t now;
-            time(&now);
-
-            char rtc_time_str[32];
-            time_t adjusted = now + ((time_t)g_timezone_offset_min * 60);
-            struct tm timeinfo;
-            gmtime_r(&adjusted, &timeinfo);
-            strftime(rtc_time_str, sizeof(rtc_time_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
-
-            sd_write_data_row(rtc_time_str, g_curr_voltage, g_curr_acc_voltage, g_curr_fuel_raw, g_ignition ? 1 : 0,
-                              g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2,
-                              g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_temp_c);
-            
-            last_log_time = current_ms;
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
+    // =====================================================================
+    // RTC STATUS & HOT-PLUG DETECTION (Mirrors SD Card Lifecycle)
+    // =====================================================================
+    if (!g_rtc_ready) {
+      // State 1: RTC Disconnected -> Lazy polling probe every 3 seconds
+      if (current_ms - last_rtc_check_time >= 3000) {
+        last_rtc_check_time = current_ms;
+        rtc_read_and_sync();
+      }
+    } else {
+      // State 2: RTC Ready -> Periodic sync/alive check every 10 seconds
+      if (current_ms - last_rtc_check_time >= 10000) {
+        last_rtc_check_time = current_ms;
+        rtc_read_and_sync();
+      }
     }
+
+    // =====================================================================
+    // STATE 1: SD CARD NOT READY (Error / Missing / Unmounted)
+    // Connection Detection via Lazy Polling (Every 5 Seconds)
+    // =====================================================================
+    if (!g_sd_card_ready) {
+      if (current_ms - last_sd_remount_time >= 5000) {
+        last_sd_remount_time = current_ms;
+        printf("[SD] Card unmounted/missing. Attempting re-mount...\n");
+
+        if (sd_try_remount()) {
+          // Mount Succeeded! Open CSV file if logging active
+          if (g_is_logging) {
+            sd_start_new_log();
+          }
+          g_sd_used_perc = sd_get_used_percentage();
+        } else {
+          printf("[SD] Re-mount failed. Will retry in 5 seconds.\n");
+        }
+      }
+      vTaskDelay(pdMS_TO_TICKS(500)); // Sleep during lazy polling phase
+      continue;
+    }
+
+    // Periodically update used percentage every 10 seconds if ready
+    if (current_ms - last_sd_remount_time >= 10000) {
+      g_sd_used_perc = sd_get_used_percentage();
+      last_sd_remount_time = current_ms;
+    }
+
+    // =====================================================================
+    // STATE 2: SD CARD READY & LOGGING ACTIVE
+    // Disconnection Detection via Write/Flush Error Catching
+    // =====================================================================
+    if (g_is_logging && (current_ms - last_log_time >= g_sampling_rate_ms)) {
+      time_t now;
+      time(&now);
+
+      char rtc_time_str[32];
+      time_t adjusted = now + ((time_t)g_timezone_offset_min * 60);
+      struct tm timeinfo;
+      gmtime_r(&adjusted, &timeinfo);
+      strftime(rtc_time_str, sizeof(rtc_time_str), "%Y-%m-%d %H:%M:%S",
+               &timeinfo);
+
+      bool success = sd_write_data_row(
+          rtc_time_str, g_curr_voltage, g_curr_acc_voltage, g_curr_fuel_raw,
+          g_ignition ? 1 : 0, g_curr_accX_ms2, g_curr_accY_ms2, g_curr_accZ_ms2,
+          g_curr_pitch, g_curr_roll, g_curr_yaw, g_curr_temp_c);
+
+      if (success) {
+        last_log_time = current_ms;
+      } else {
+        // Write/Flush failed! Card was unexpectedly removed.
+        // g_sd_card_ready is now false and resources were unmounted in
+        // sd_handle_card_removal()
+        last_sd_remount_time = current_ms;
+      }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 }
 
 extern "C" void app_main(void) {
-    imu_init();
-    imu_calibrate();
-    mcp9808_init();
-    rtc_init();
-    fuel_sensor_init();
-    voltage_sensor_init();
-    accumulator_sensor_init();
+  imu_init();
+  imu_calibrate();
+  mcp9808_init();
+  rtc_init();
+  fuel_sensor_init();
+  voltage_sensor_init();
+  accumulator_sensor_init();
 
-    // Ignition Pin Configuration
-    gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << IGNITION_PIN);
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_config(&io_conf);
+  // Ignition Pin Configuration
+  gpio_config_t io_conf = {};
+  io_conf.intr_type = GPIO_INTR_DISABLE;
+  io_conf.mode = GPIO_MODE_INPUT;
+  io_conf.pin_bit_mask = (1ULL << IGNITION_PIN);
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_config(&io_conf);
 
-    sd_init();
-    wifi_ap_init();
-    start_webserver();
+  sd_init();
+  wifi_ap_init();
+  start_webserver();
 
-    xTaskCreatePinnedToCore(sensor_read_task, "sensor_task", 8192, NULL, 5, NULL, 1);
-    xTaskCreatePinnedToCore(logging_task, "log_task", 4096, NULL, 4, NULL, 0);
+  xTaskCreatePinnedToCore(sensor_read_task, "sensor_task", 8192, NULL, 5, NULL,
+                          1);
+  xTaskCreatePinnedToCore(logging_task, "log_task", 4096, NULL, 4, NULL, 0);
 }

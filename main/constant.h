@@ -61,13 +61,17 @@
 #define BATT_MAX_VOLTAGE 4.2f
 
 // WiFi Settings
-#define ESP_WIFI_SSID      "DeviceLogger"
-#define ESP_WIFI_PASS      "12345678"
-#define ESP_WIFI_CHANNEL   1
-#define ESP_MAX_STA_CONN   4
+#define ESP_WIFI_SSID            "DeviceLogger"
+#define ESP_WIFI_PASS            "12345678"
+#define ESP_WIFI_CHANNEL         1
+#define ESP_MAX_STA_CONN         4
+// Set to true for bench testing (AP auto-starts on boot).
+// Set to false for vehicle production mode (AP starts ONLY when Ignition is ON).
+#define WIFI_AP_ENABLE_ON_BOOT   true
 
 // Logging parameters
 inline volatile bool g_sd_card_ready = false;
+inline volatile bool g_rtc_ready = false;
 inline volatile bool g_is_logging = false;
 inline volatile int g_sampling_rate_ms = 50;
 

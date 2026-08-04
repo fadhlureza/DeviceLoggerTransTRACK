@@ -1,6 +1,7 @@
 let isLogging = false;
 let isConfigLoaded = false;
 let isSdReady = false;
+let isRtcReady = false;
 
 // --- KONFIGURASI GRAFIK CANVAS ---
 const MAX_DATA_POINTS = 50; // Jumlah titik yang digambar di layar
@@ -164,7 +165,15 @@ async function fetchData() {
         
         // --- Update Teks Status (AC) ---
         // RTC
-        document.getElementById('rtc-time').innerText = "⌚ RTC: " + (data.rtc_time || "---- --:--:--");
+        isRtcReady = (data.rtc_ready !== undefined) ? data.rtc_ready : true;
+        const rtcBadge = document.getElementById('rtc-time');
+        if (isRtcReady) {
+            rtcBadge.innerText = "⌚ RTC: " + (data.rtc_time || "---- --:--:--");
+            rtcBadge.className = "badge neutral";
+        } else {
+            rtcBadge.innerText = "⌚ RTC: DISCONNECTED";
+            rtcBadge.className = "badge off";
+        }
         // Battery: Green >30%, Red <=30%
         const battBadge = document.getElementById('batt-status');
         if (data.batt_perc !== undefined && data.batt_perc !== null && !isNaN(data.batt_perc)) {
@@ -200,6 +209,16 @@ async function fetchData() {
         } else {
             ignBadge.innerText = "🔑 Ignition: OFF";
             ignBadge.className = "badge off";
+        }
+
+        // WiFi AP Status
+        const wifiBadge = document.getElementById('wifi-status');
+        if (data.wifi_on) {
+            wifiBadge.innerText = "📶 WiFi: AP Mode";
+            wifiBadge.className = "badge on";
+        } else {
+            wifiBadge.innerText = "📶 WiFi: OFF";
+            wifiBadge.className = "badge off";
         }
         // --------------------------------
 
@@ -252,16 +271,34 @@ function updateLoggingUI(status) {
     }
 }
 
+// Sanitasi Input Sampling Rate (Hanya Menerima Integer Positif)
+document.addEventListener('DOMContentLoaded', () => {
+    const samplingInput = document.getElementById('sampling-rate');
+    if (samplingInput) {
+        samplingInput.addEventListener('keydown', (e) => {
+            if (['e', 'E', '.', ',', '-', '+'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+    }
+});
+
 async function toggleLogging() {
+    // Validasi Sampling Rate (1 sampai 20 Hz)
+    const rateInputVal = document.getElementById('sampling-rate').value;
+    const rateHz = parseInt(rateInputVal, 10);
+    if (!rateInputVal || isNaN(rateHz) || rateHz < 1 || rateHz > 20) {
+        alert("Error: Sampling Rate must be a whole number between 1 and 20 Hz.");
+        return;
+    }
+
+    // Validasi SD Card Status saat mau START LOGGING
     if (!isLogging && !isSdReady) {
-        alert("SD Card not mounted.");
+        alert("Error: Cannot start logging. SD Card is not mounted or has failed.");
         return;
     }
 
     const newState = !isLogging;
-    const rateHz = parseInt(document.getElementById('sampling-rate').value);
-    
-    // Konversi Hz ke Milidetik (ms)
     const rateMs = Math.round(1000 / rateHz);
 
     try {
@@ -273,8 +310,14 @@ async function toggleLogging() {
                 sampling_rate_ms: rateMs
             })
         });
-        if (response.ok) {
-            updateLoggingUI(newState);
+
+        const resData = await response.json();
+
+        if (response.ok && resData.status === "OK") {
+            updateLoggingUI(resData.is_logging !== undefined ? resData.is_logging : newState);
+        } else {
+            alert(resData.message || "Error: Failed to toggle logging state.");
+            updateLoggingUI(resData.is_logging !== undefined ? resData.is_logging : false);
         }
     } catch (error) {
         alert("Failed to communicate with ESP32");
@@ -282,10 +325,15 @@ async function toggleLogging() {
 }
 
 async function updateConfig() {
-    const rateHz = parseInt(document.getElementById('sampling-rate').value);
+    // Validasi Sampling Rate (1 sampai 20 Hz)
+    const rateInputVal = document.getElementById('sampling-rate').value;
+    const rateHz = parseInt(rateInputVal, 10);
+    if (!rateInputVal || isNaN(rateHz) || rateHz < 1 || rateHz > 20) {
+        alert("Error: Sampling Rate must be a whole number between 1 and 20 Hz.");
+        return;
+    }
+
     const rtcInput = document.getElementById('rtc-datetime').value;
-    
-    // Konversi Hz ke ms buat ESP32
     const rateMs = Math.round(1000 / rateHz);
     
     // Siapin timestamp Unix buat RTC kalau diisi
@@ -306,11 +354,17 @@ async function updateConfig() {
                 timezone_offset_min: timezoneOffsetMin
             })
         });
-        if (response.ok) {
-            alert("Config saved successfully");
+
+        const resData = await response.json();
+
+        if (response.ok && resData.status === "OK") {
+            alert("Config saved successfully!");
+            document.getElementById('rtc-datetime').value = "";
+        } else {
+            alert(resData.message || "Error: Failed to save config.");
         }
     } catch (error) {
-        alert("Failed to save config");
+        alert("Failed to communicate with ESP32");
     }
 }
 
