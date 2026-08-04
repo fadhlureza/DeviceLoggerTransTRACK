@@ -15,9 +15,13 @@ static const int RECOVERY_COOLDOWN_MS = 5000;
 static const int HEALTH_CHECK_INTERVAL = 100; 
 static const int RECOVERY_FAIL_THRESHOLD = 3;
 
-static float baseX = 0;
-static float baseY = 0;
-static float baseZ = 0;
+static float baseaX = 0;
+static float baseaY = 0;
+static float baseaZ = 0;
+
+static float basegX = 0.0f;
+static float basegY = 0.0f;
+static float basegZ = 0.0f;
 
 static float pitch_filtered = 0.0f;
 static float roll_filtered = 0.0f;
@@ -175,7 +179,8 @@ void imu_init() {
 
 void imu_calibrate() {
     const int sampleCount = 100;
-    float sumX = 0, sumY = 0, sumZ = 0;
+    float sumaX = 0, sumaY = 0, sumaZ = 0;
+    float sumgX = 0, sumgY = 0, sumgZ = 0;
     int validSamples = 0;
 
     for (int i = 0; i < sampleCount; i++) {
@@ -186,17 +191,23 @@ void imu_calibrate() {
             vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
-        sumX += rawToG(ax);
-        sumY += rawToG(ay);
-        sumZ += rawToG(az);
+        sumaX += rawToG(ax);
+        sumaY += rawToG(ay);
+        sumaZ += rawToG(az);
+        sumgX += rawToDPS(gx);
+        sumgY += rawToDPS(gy);
+        sumgZ += rawToDPS(gz);
         validSamples++;
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     if (validSamples > 0) {
-        baseX = sumX / validSamples;
-        baseY = sumY / validSamples;
-        baseZ = sumZ / validSamples;
+        baseaX = sumaX / validSamples;
+        baseaY = sumaY / validSamples;
+        baseaZ = sumaZ / validSamples;
+        basegX = sumgX / validSamples;
+        basegY = sumgY / validSamples;
+        basegZ = sumgZ / validSamples;
         ESP_LOGI(TAG, "Baseline updated with %d samples", validSamples);
     }
     last_time = esp_timer_get_time();
@@ -217,7 +228,7 @@ void imu_read_vibration_and_orientation(float *out_raw_g, float *out_uncalib_ms2
     if (err != ESP_OK) {
         consecutive_failures++;
         if (consecutive_failures >= RECOVERY_FAIL_THRESHOLD) imu_recover();
-
+        last_time = esp_timer_get_time();
         if (last_valid.valid) {
             *out_raw_g = last_valid.raw_g;
             *out_uncalib_ms2 = last_valid.uncalib_ms2;
@@ -238,18 +249,21 @@ void imu_read_vibration_and_orientation(float *out_raw_g, float *out_uncalib_ms2
     float accX_g = rawToG(ax);
     float accY_g = rawToG(ay);
     float accZ_g = rawToG(az);
-    float deltaX = accX_g - baseX;
-    float deltaY = accY_g - baseY;
-    float deltaZ = accZ_g - baseZ;
+    float deltaX = accX_g - baseaX;
+    float deltaY = accY_g - baseaY;
+    float deltaZ = accZ_g - baseaZ;
 
     float vibration_g = sqrt((deltaX * deltaX) + (deltaY * deltaY) + (deltaZ * deltaZ));
     float vibration_ms2 = (vibration_g * GRAVITY_EARTH);
     float vibration_ms2_calibrated = (vibration_ms2 * VIB_CALIB_MULT) + VIB_CALIB_OFFSET;
 
     // Proses Data Orientasi
-    float gyro_rate_pitch = rawToDPS(gx);
-    float gyro_rate_roll  = rawToDPS(gy);
-    float gyro_rate_yaw   = rawToDPS(gz);
+    float gyro_rate_pitch = rawToDPS(gx) - basegX;
+    float gyro_rate_roll  = rawToDPS(gy) - basegY;
+    float gyro_rate_yaw   = rawToDPS(gz) - basegZ;
+
+    if(fabs(gyro_rate_yaw) < YAW_RATE_DEADBAND) gyro_rate_yaw = 0.0f;
+
     float accel_pitch = atan2(-accX_g, sqrt(accY_g * accY_g + accZ_g * accZ_g)) * 180.0 / M_PI;
     float accel_roll  = atan2(accY_g, accZ_g) * 180.0 / M_PI;
 
@@ -257,9 +271,13 @@ void imu_read_vibration_and_orientation(float *out_raw_g, float *out_uncalib_ms2
     float dt = (current_time - last_time) / 1000000.0f; 
     last_time = current_time;
 
+    if(dt > IMU_DT_MAX_SEC) dt = IMU_DT_MAX_SEC;
+
     pitch_filtered = ALPHA * (pitch_filtered + gyro_rate_pitch * dt) + (1.0f - ALPHA) * accel_pitch;
     roll_filtered  = ALPHA * (roll_filtered + gyro_rate_roll * dt) + (1.0f - ALPHA) * accel_roll;
     yaw_gyro = yaw_gyro + (gyro_rate_yaw * dt); 
+
+
 
     // Update Data Caching
     last_valid.accX = accX_g;

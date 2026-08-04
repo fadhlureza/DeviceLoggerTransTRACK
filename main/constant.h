@@ -29,7 +29,9 @@
 #define IMU_I2C_FREQ     100000
 #define IMU_LSB_PER_G    2048.0f
 #define GRAVITY_EARTH    9.80665f
-#define ALPHA 0.98f
+#define ALPHA            0.98f
+#define YAW_RATE_DEADBAND 0.7f
+#define IMU_DT_MAX_SEC   0.2f
 
 // Kalibrasi IMU
 #define VIB_CALIB_MULT   1.226f
